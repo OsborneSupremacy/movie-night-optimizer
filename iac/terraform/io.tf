@@ -1,6 +1,6 @@
 # inputs
 variable "live_mode" {
-  description = "Whether mail goes to the address it is addressed to. When false it is diverted to test_recipient with \" - TEST MODE\" on the subject."
+  description = "Whether mail goes to the address it is addressed to. When false it is diverted to test_recipient, with \"[TEST for <address>]\" at the start of the subject."
   type        = bool
   default     = true
 }
@@ -27,4 +27,9 @@ output "cloudfront_distribution_id" {
 output "api_endpoint" {
   description = "The API's own address. Useful for telling an API problem from a CloudFront one."
   value       = aws_apigatewayv2_api.movienight.api_endpoint
+}
+
+output "tmdb_secret_name" {
+  description = "Where the TMDB credentials are kept. Fill in its values in the Secrets Manager console."
+  value       = aws_secretsmanager_secret.tmdb.name
 }
