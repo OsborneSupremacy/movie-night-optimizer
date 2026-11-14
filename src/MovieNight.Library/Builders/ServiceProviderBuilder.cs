@@ -38,7 +38,8 @@ internal static class ServiceProviderBuilder
 
     internal static IServiceCollection AddValidators(this IServiceCollection services) =>
         services
-            .AddSingleton<IValidator<CreateNightRequest>, CreateNightRequestValidator>();
+            .AddSingleton<IValidator<CreateNightRequest>, CreateNightRequestValidator>()
+            .AddSingleton<IValidator<SubmitSuggestionRequest>, SubmitSuggestionRequestValidator>();
 
     /// <summary>
     /// Keys are the HTTP API route key, lower-cased: "post /api/nights". They have to match the
@@ -48,6 +49,8 @@ internal static class ServiceProviderBuilder
         services
             .AddSingleton<NightProvider>()
             .AddSingleton<EmailSender>()
+            .AddSingleton<NightReader>()
+            .AddSingleton<PhaseAdvancer>()
 
             .AddKeyedSingleton<IApiGatewayHandler, HealthService>("get /api/health")
             .AddKeyedSingleton<IApiGatewayHandler, CreateNightService>("post /api/nights")

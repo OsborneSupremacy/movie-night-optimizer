@@ -56,7 +56,8 @@ resource "aws_iam_role_policy_attachment" "movienight_exec_role_lambda_basic_exe
 }
 
 # Scan is withheld deliberately: every read is of one night by its key. A transactional write
-# needs no action of its own, only the PutItem and UpdateItem it is made of.
+# needs no action of its own, only the actions it is made of: PutItem and UpdateItem, and
+# ConditionCheckItem for the check that a night is still in the phase a write belongs to.
 resource "aws_iam_role_policy" "movienight_dynamodb_policy" {
   name = "movienight-dynamodb-policy"
   role = aws_iam_role.movienight_exec_role.id
@@ -70,6 +71,7 @@ resource "aws_iam_role_policy" "movienight_dynamodb_policy" {
           "dynamodb:GetItem",
           "dynamodb:PutItem",
           "dynamodb:UpdateItem",
+          "dynamodb:ConditionCheckItem",
           "dynamodb:Query"
         ]
         Resource = [aws_dynamodb_table.movienight.arn]

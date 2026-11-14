@@ -21,8 +21,15 @@ public record Participant
 
     public required string Email { get; init; }
 
-    /// <summary>The hash of the token in this participant's links. The token itself is never stored.</summary>
-    public required string TokenHash { get; init; }
+    /// <summary>
+    /// The hashes of the tokens in this participant's links, one per email they have been sent.
+    /// The tokens themselves are never stored.
+    /// </summary>
+    /// <remarks>
+    /// Several because a token can't be sent twice: only its hash is kept, so each round's email
+    /// carries a new one. Earlier links keep working, so whichever email somebody opens finds them.
+    /// </remarks>
+    public required ImmutableList<string> TokenHashes { get; init; }
 
     public bool IsOrganizer { get; init; }
 
@@ -46,6 +53,13 @@ public record Night
         Participants = []
     };
 
+    public static readonly Participant EmptyParticipant = new()
+    {
+        ParticipantId = string.Empty,
+        Email = string.Empty,
+        TokenHashes = []
+    };
+
     public required string NightId { get; init; }
 
     public required DateOnly Date { get; init; }
@@ -53,4 +67,12 @@ public record Night
     public required NightPhase Phase { get; init; }
 
     public required ImmutableList<Participant> Participants { get; init; }
+}
+
+/// <summary>A night, and the participant whose token was presented for it.</summary>
+public record Caller
+{
+    public required Night Night { get; init; }
+
+    public required Participant Participant { get; init; }
 }

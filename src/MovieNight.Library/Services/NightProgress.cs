@@ -1,0 +1,119 @@
+namespace MovieNight.Library.Services;
+
+/// <summary>
+/// The rules of a night that depend only on what is in it: who has answered, who ranks what,
+/// where it goes next and how it scores. Nothing here reads or writes anything.
+/// </summary>
+/// <remarks>
+/// A movie is identified by the participant who suggested it, so a movie id is a participant id.
+/// </remarks>
+internal static class NightProgress
+{
+    /// <summary>The longest movie title accepted, which is longer than any real one.</summary>
+    internal const int MaxSuggestionLength = 100;
+
+    /// <summary>Everyone who has suggested a movie.</summary>
+    public static ImmutableList<Participant> Suggesters(Night night) =>
+        night.Participants
+            .Where(participant => participant.Suggestion.Length > 0)
+            .ToImmutableList();
+
+    /// <summary>
+    /// The movies this participant ranks: every suggestion but their own.
+    /// </summary>
+    /// <remarks>
+    /// Shuffled, and differently for each participant, because a list people are asked to reorder
+    /// is a list some of them will leave alone, and whichever movie happened to be first would
+    /// collect the points. Shuffled the same way every time, so the page doesn't reorder itself
+    /// on a refresh.
+    /// </remarks>
+    public static ImmutableList<Participant> MoviesToRank(Night night, string participantId) =>
+        Suggesters(night)
+            .Where(suggester => suggester.ParticipantId != participantId)
+            .OrderBy(suggester => SecretToken.Hash($"{participantId}:{suggester.ParticipantId}"), StringComparer.Ordinal)
+            .ToImmutableList();
+
+    /// <summary>Whether this participant still owes the night a ranking.</summary>
+    public static bool NeedsToRank(Night night, Participant participant) =>
+        participant.Ranking.Count == 0 && MoviesToRank(night, participant.ParticipantId).Count > 0;
+
+    /// <summary>Whether this participant has answered the round the night is in.</summary>
+    public static bool HasAnswered(Night night, Participant participant) =>
+        night.Phase switch
+        {
+            NightPhase.Collecting => participant.Suggestion.Length > 0,
+            NightPhase.Ranking => !NeedsToRank(night, participant),
+            _ => true
+        };
+
+    /// <summary>Whether everyone has answered the round the night is in.</summary>
+    public static bool IsRoundComplete(Night night) =>
+        night.Participants.All(participant => HasAnswered(night, participant));
+
+    /// <summary>
+    /// Where the night goes when the current round closes.
+    /// </summary>
+    /// <remarks>
+    /// With one suggestion or none there is nothing to choose between, so collecting goes straight
+    /// to done rather than asking people to rank a list of one.
+    /// </remarks>
+    public static NightPhase NextPhase(Night night) =>
+        night.Phase == NightPhase.Collecting && Suggesters(night).Count > 1
+            ? NightPhase.Ranking
+            : NightPhase.Done;
+
+    /// <summary>
+    /// Whether a ranking names every movie this participant is to rank, each once, and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// All of them rather than a top few, because a Borda count is only fair when every ballot
+    /// ranks the same number of movies.
+    /// </remarks>
+    public static bool IsCompleteRanking(Night night, string participantId, IReadOnlyCollection<string> ranking)
+    {
+        var expected = MoviesToRank(night, participantId)
+            .Select(movie => movie.ParticipantId)
+            .ToImmutableHashSet(StringComparer.Ordinal);
+
+        return ranking.Count == expected.Count
+            && ranking.Distinct(StringComparer.Ordinal).Count() == ranking.Count
+            && ranking.All(expected.Contains);
+    }
+
+    /// <summary>Every suggestion, winner first, from the rankings that are in.</summary>
+    public static ImmutableList<MovieScore> Score(Night night) =>
+        BordaScorer.Score(
+            Suggesters(night).Select(suggester => suggester.ParticipantId).ToImmutableList(),
+            night.Participants
+                .Where(participant => participant.Ranking.Count > 0)
+                .Select(participant => new Ballot
+                {
+                    VoterId = participant.ParticipantId,
+                    RankedMovieIds = participant.Ranking
+                })
+                .ToImmutableList()
+        );
+
+    /// <summary>The title of the movie a participant suggested, by its id.</summary>
+    public static string TitleOf(Night night, string movieId) =>
+        night.Participants
+            .Where(participant => participant.ParticipantId == movieId)
+            .Select(participant => participant.Suggestion)
+            .FirstOrDefault() ?? string.Empty;
+
+    /// <summary>The participant whose token this is, if any.</summary>
+    public static (bool found, Participant participant) FindByToken(Night night, string token)
+    {
+        if(string.IsNullOrWhiteSpace(token))
+            return (false, Night.EmptyParticipant);
+
+        var hash = SecretToken.Hash(token.Trim());
+
+        var participant = night.Participants
+            .FirstOrDefault(candidate => candidate.TokenHashes.Contains(hash, StringComparer.Ordinal));
+
+        return participant is null
+            ? (false, Night.EmptyParticipant)
+            : (true, participant);
+    }
+}

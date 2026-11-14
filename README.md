@@ -6,9 +6,6 @@ An organizer enters everyone's email address and the date. Everyone is emailed a
 one movie. Once every suggestion is in, everyone is emailed again to rank the suggestions, except
 their own. Once every ranking is in, everyone is emailed the result.
 
-> [!NOTE]
-> This is a scaffold. The infrastructure, the router and the scoring are in place; creating a
-> night, suggesting, ranking and the emails are stubs that answer 501. See [Status](#status).
 
 ## How it works
 
@@ -21,12 +18,20 @@ A night moves through three phases and only ever forwards:
 | `Done`       | The rankings are scored and the results are sent.                     |
 
 There are no accounts. Each participant's emailed link carries a token that is theirs alone, in
-the URL fragment, and only the token's hash is stored. Opening a link only reads; suggesting and
+the URL fragment, and only the token's hash is stored. Because a stored hash can't be turned back
+into a link, each round's email carries a new token, added alongside the old ones, so every link a
+person has been sent keeps working. Opening a link only reads; suggesting and
 ranking happen when a person presses a button, so a mail scanner that follows a link can't answer
 for anybody.
 
 Scoring is a Borda count: on a ballot ranking k movies the first gets k points and the last
 gets 1. Ties go to the movie with more first-place votes.
+
+A round closes when the last person answers, or when the organizer closes it early so one person
+can't stall the night. If only one movie was suggested, the night skips ranking and goes straight
+to the result. The phase change is conditional on the phase the night was read in, so two people
+finishing at the same moment can't both send the next round of email. One inbox can start at most
+three nights a day, because creating a night mails addresses a stranger typed.
 
 ## How it's built
 
@@ -105,9 +110,9 @@ dotnet test
 - [x] Router, request adapter, token hashing
 - [x] Borda scoring, with tests
 - [x] Reading and creating a night in DynamoDB
-- [ ] `POST /api/nights`, with a per-organizer daily limit
-- [ ] `GET /api/nights/{nightId}`
-- [ ] Suggesting, ranking and closing a round early
-- [ ] The three emails
-- [ ] Suggest, rank and results pages
+- [x] `POST /api/nights`, with a per-organizer daily limit
+- [x] `GET /api/nights/{nightId}`
+- [x] Suggesting, ranking and closing a round early
+- [x] The three emails
+- [x] Suggest, rank and results pages
 - [ ] Merging duplicate suggestions

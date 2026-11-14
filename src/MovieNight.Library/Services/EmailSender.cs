@@ -1,4 +1,4 @@
-using Amazon.SimpleEmail;
+﻿using Amazon.SimpleEmail;
 using Amazon.SimpleEmail.Model;
 
 namespace MovieNight.Library.Services;
@@ -14,6 +14,8 @@ internal class EmailSender
 
     private readonly IAmazonSimpleEmailService _sesClient;
 
+    private readonly ILogger<EmailSender> _logger;
+
     private readonly string _senderAddress;
 
     private readonly bool _liveMode;
@@ -21,9 +23,10 @@ internal class EmailSender
     private readonly string _testRecipient;
 
     // ReSharper disable once ConvertToPrimaryConstructor
-    public EmailSender(IAmazonSimpleEmailService sesClient)
+    public EmailSender(IAmazonSimpleEmailService sesClient, ILogger<EmailSender> logger)
     {
         _sesClient = sesClient ?? throw new ArgumentNullException(nameof(sesClient));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _senderAddress = EnvReader.GetStringValue("SENDER_ADDRESS");
         _liveMode = EnvReader.TryGetBooleanValue("LIVE_MODE", out var liveMode) && liveMode;
         _testRecipient = EnvReader.TryGetStringValue("TEST_RECIPIENT", out var testRecipient)
@@ -57,4 +60,41 @@ internal class EmailSender
 
         await _sesClient.SendEmailAsync(request).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Sends each message on its own, so one address SES refuses doesn't stop the rest. Returns
+    /// how many failed; each failure is logged.
+    /// </summary>
+    /// <remarks>
+    /// The caller has always written the night by now, so a failure here can't be undone by
+    /// throwing. What it can do is tell the person who pressed the button.
+    /// </remarks>
+    public async Task<int> SendEachAsync(IEnumerable<OutgoingEmail> emails)
+    {
+        var results = await Task
+            .WhenAll(emails.Select(async email =>
+            {
+                try
+                {
+                    await SendAsync(email.To, email.Content.Subject, email.Content.HtmlBody, email.Content.TextBody)
+                        .ConfigureAwait(false);
+                    return true;
+                }
+                catch (Exception exception)
+                {
+                    _logger.LogError(exception, "Couldn't send {Subject}", email.Content.Subject);
+                    return false;
+                }
+            }))
+            .ConfigureAwait(false);
+
+        return results.Count(sent => !sent);
+    }
+}
+
+internal record OutgoingEmail
+{
+    public required string To { get; init; }
+
+    public required EmailContent Content { get; init; }
 }

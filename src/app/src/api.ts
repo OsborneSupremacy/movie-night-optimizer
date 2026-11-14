@@ -58,6 +58,54 @@ export interface CreateNightResponse {
 export const createNight = (body: CreateNightRequest) =>
   request<CreateNightResponse>('POST', '/nights', { body })
 
-// TODO: type this once GetNightService returns something.
+export type NightPhase = 'collecting' | 'ranking' | 'done'
+
+export interface MovieView {
+  movieId: string
+  title: string
+}
+
+export interface ResultView {
+  movieId: string
+  title: string
+  points: number
+  firstPlaceVotes: number
+  isYours: boolean
+}
+
+/** What one participant sees of a night. Mirrors NightView in Messages.cs. */
+export interface NightView {
+  nightId: string
+  /** yyyy-MM-dd */
+  date: string
+  phase: NightPhase
+  isOrganizer: boolean
+  /** Empty until this participant has suggested a movie. */
+  yourSuggestion: string
+  /** Whether this participant has answered the current round. */
+  hasAnswered: boolean
+  participantCount: number
+  answeredCount: number
+  /** While ranking: everyone else's suggestions, never this participant's own. */
+  toRank: MovieView[]
+  /** When done: every movie, winner first. */
+  results: ResultView[]
+  /** For the organizer only: who hasn't answered the current round. */
+  waitingOn: string[]
+}
+
+const nightPath = (nightId: string) => `/nights/${encodeURIComponent(nightId)}`
+
 export const getNight = (nightId: string, token: string) =>
-  request<unknown>('GET', `/nights/${encodeURIComponent(nightId)}`, { token })
+  request<NightView>('GET', nightPath(nightId), { token })
+
+export const submitSuggestion = (nightId: string, token: string, suggestion: string) =>
+  request<NightView>('POST', `${nightPath(nightId)}/suggestion`, { token, body: { suggestion } })
+
+/** Movie ids from NightView.toRank, best first. */
+export const submitRanking = (nightId: string, token: string, ranking: string[]) =>
+  request<NightView>('POST', `${nightPath(nightId)}/ranking`, { token, body: { ranking } })
+
+/** Organizer only: closes the current round without waiting for everyone. */
+export const advanceNight = (nightId: string, token: string) =>
+  request<NightView>('POST', `${nightPath(nightId)}/advance`, { token })
