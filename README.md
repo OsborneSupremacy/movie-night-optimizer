@@ -35,6 +35,10 @@ to the result. The phase change is conditional on the phase the night was read i
 finishing at the same moment can't both send the next round of email. One inbox can start at most
 three nights a day, because creating a night mails addresses a stranger typed.
 
+Each movie can only be suggested once. A second person suggesting the same title is asked for
+another pick, because two entries would split the movie's votes. Titles match ignoring case,
+punctuation and a leading "The".
+
 ## How it's built
 
 | Layer          | Built with                                                                                     |
@@ -108,4 +112,5 @@ dotnet test
 - [x] Suggesting, ranking and closing a round early
 - [x] The three emails
 - [x] Suggest, rank and results pages
-- [ ] Merging duplicate suggestions
+- [x] Turning away a movie somebody else already suggested
+- [x] CI: build, tests and Terraform checks on every push

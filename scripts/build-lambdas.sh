@@ -8,6 +8,8 @@ FRAMEWORK="net10.0"
 RUNTIME="linux-arm64"
 CONFIGURATION="Release"
 
+# ReadyToRun compiles ahead of time, so a cold start doesn't spend its first seconds JIT-compiling
+# the SDK and the DI container. It roughly doubles the zip, which costs nothing that matters here.
 build_lambda() {
   local project_dir="$1"
   local zip_name="$2"
@@ -22,7 +24,8 @@ build_lambda() {
     --framework "${FRAMEWORK}" \
     /p:GenerateRuntimeConfigurationFiles=true \
     --runtime "${RUNTIME}" \
-    --self-contained false
+    --self-contained false \
+    /p:PublishReadyToRun=true
 
   pushd bin/publish >/dev/null
   rm -f "../${zip_name}"

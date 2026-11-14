@@ -20,14 +20,15 @@ If someone never answers, the organizer can close the round and move on, so one 
 
 ![Architecture](architecture.png)
 
-- **Amazon CloudFront** is the single front door, at `movienight.osbornesupremacy.com`. It serves the site from S3 and sends `/api/*` to API Gateway. With one origin for both, the browser never makes a cross-origin request, so there's no CORS to configure.
+- **Amazon CloudFront** is the single front door, at `movienight.osbornesupremacy.com`. It serves the site from S3 and sends `/api/*` to API Gateway. With one origin for both, the browser never makes a cross-origin request, so there's no CORS to configure. A response headers policy adds HSTS, a strict content security policy and protection against being framed by other sites.
 - **Amazon S3** holds the React front end. The bucket is private and readable only by CloudFront, through origin access control.
 - **Amazon API Gateway (HTTP API)** exposes six routes under `/api`, throttled to 5 requests a second.
-- **AWS Lambda** runs one .NET 10 function on arm64. It dispatches each request on its route key to the handler for that route, so one small deployment serves the whole API.
+- **AWS Lambda** runs one .NET 10 function on arm64. It dispatches each request on its route key to the handler for that route, so one small deployment serves the whole API. It is compiled ahead of time (ReadyToRun) and given one full vCPU, which brought the first request after an idle spell from 1.8 s to 0.7 s. Warm requests take milliseconds.
 - **Amazon DynamoDB** stores each night in a partition of its own: a summary item plus one item per person, so one query reads the whole night. A TTL deletes nights after 30 days, and on-demand billing means an idle app costs almost nothing.
 - **Amazon SES** sends the three emails, with HTML and plain-text versions. The domain is verified with DKIM, SPF and DMARC records.
 - **Amazon Route 53 and AWS Certificate Manager** provide the domain and its TLS certificate.
 - **Terraform** defines every resource above, and one script builds and deploys the whole app.
+- **GitHub Actions** builds and tests the API, builds the front end, and checks the Terraform on every push.
 
 ## Design decisions worth calling out
 
@@ -36,30 +37,29 @@ If someone never answers, the organizer can close the round and move on, so one 
 - **Exactly one round of email, even under a race.** The last two people often answer at almost the same moment. Every write is a DynamoDB transaction conditional on the night's current phase, and the phase moves on only from the phase it was read in. However the requests interleave, only one of them moves the night on and sends the next email.
 - **Abuse limits on a public endpoint.** Creating a night sends mail to addresses a stranger typed, so each inbox can start at most three nights a day, with at most eight people per night. Address variants like `me+1@gmail.com` count as the same inbox.
 - **Fair scoring.** A Borda count is only fair if every ballot ranks the same number of movies, so a ranking must include every other movie exactly once.
+- **One entry per movie.** If two people suggest the same movie, its votes would be split between two entries. Merging the entries would leave that movie off two ballots instead of one, which breaks the fairness above. So the second person is told "Great minds! Someone already suggested that one" and asked for another pick. Titles match ignoring case, punctuation and a leading "The", so "princess bride!" is caught. Only that one title is revealed, so nobody anchors on the others' picks.
 
 ## Demo video script (target 2:45, limit 3:00)
 
-In test mode, every email goes to one inbox, and each subject starts with who it was for (`[TEST for grandma@example.com] Pick a movie…`). That lets one person play the whole family on camera. Deploy in test mode before filming:
+Filmed in live mode with `@osbornesupremacy.com` addresses, which all reach one inbox. Give each family member an obvious name (`grandma@`, `sam@`, `alex@`), so each email's To line shows whose link it is.
 
-```bash
-AWS_PROFILE=ben ./scripts/deploy.sh -var live_mode=false -var test_recipient=movienight@osbornesupremacy.com
-```
+Each inbox can start only three nights a day, and rehearsals count. Use a different organizer address for each take (`organizer1@`, `organizer2@`…). Different names before the @ are separate inboxes; only `+tag` variants count as the same one.
 
-Each inbox can start only three nights a day, rehearsals included, so use a different organizer address for each take.
+The first request after the site has been idle takes about a second, so click through once before you start recording.
 
 | Time | On screen | Say |
 |---|---|---|
 | 0:00–0:15 | Title card, then the home page | The problem: twenty minutes of arguing, and the quiet people never get a say. |
 | 0:15–0:35 | Fill in the organizer's address, three family addresses, the date. Send. | No accounts, nothing to install. Just the emails and a date. |
-| 0:35–0:55 | The inbox: four "Pick a movie" emails, one per person. Open the organizer's. | Everyone gets their own link. Opening it only reads; answering takes a button. |
-| 0:55–1:30 | Suggest a movie as each person, sped up after the first. Leave the organizer's page open; after the last suggestion it switches to ranking on its own. | Nobody sees the others' picks until they've made their own. |
+| 0:35–0:55 | The inbox: four "Pick a movie" emails, one to each person. Point at the To lines, then open the organizer's. | Everyone gets their own link. Opening it only reads; answering takes a button. |
+| 0:55–1:30 | Suggest a movie as each person, sped up after the first. Have one person try a movie already picked, to show "Great minds!". Leave the organizer's page open; after the last suggestion it switches to ranking on its own. | Nobody sees the others' picks until they've made their own, and each movie can only be suggested once. |
 | 1:30–2:00 | Open a "Rank the movies" email. Drag the list into order, show that their own movie isn't on it, and submit. Sped-up cut through the rest. | You rank everyone else's movie, never your own. |
 | 2:00–2:15 | The results page and the results email. | Borda count. Ties go to more first-place votes. |
 | 2:15–2:40 | The architecture diagram. | CloudFront in front of S3 and an HTTP API, one Lambda, DynamoDB, SES. All serverless, all Terraform. |
 | 2:40–2:50 | Optionally, the organizer's "close this round" button. | One person can't stall the night. |
 | 2:50–3:00 | The site URL. | |
 
-## Still to decide
+## Before submitting
 
-- Whether the demo runs in test mode (one inbox, simplest to film) or live with real family inboxes.
-- Whether to merge duplicate suggestions before the deadline. Two people suggesting the same movie currently produces two entries. Merging them changes the fairness math (see the note in `BordaScorer`), so leaving it out is defensible for a weekend build.
+- Swap in the video link.
+- Optionally, link the repository: the README covers the design, and the CI badge shows the build passing.
