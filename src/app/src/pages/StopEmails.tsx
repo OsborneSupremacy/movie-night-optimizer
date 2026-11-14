@@ -61,7 +61,12 @@ export default function StopEmails() {
           {state.message}
         </p>
       )}
-      <button type="button" disabled={state.kind === 'sending'} onClick={() => void handleStop()}>
+      <button
+        type="button"
+        disabled={state.kind === 'sending'}
+        aria-busy={state.kind === 'sending'}
+        onClick={() => void handleStop()}
+      >
         {state.kind === 'sending' ? 'Stopping…' : 'Stop emailing me'}
       </button>
     </section>

@@ -149,7 +149,7 @@ function Pending({ night, token, onChange }: PhaseProps) {
           {error}
         </p>
       )}
-      <button type="button" disabled={busy} onClick={() => void handleConfirm()}>
+      <button type="button" disabled={busy} aria-busy={busy} onClick={() => void handleConfirm()}>
         {busy ? 'Sending…' : 'Send the invitations'}
       </button>
     </>
@@ -226,7 +226,7 @@ function Collecting({ night, token, onChange }: PhaseProps) {
             {error}
           </p>
         )}
-        <button type="submit" disabled={busy || !suggestion.trim()}>
+        <button type="submit" disabled={busy || !suggestion.trim()} aria-busy={busy}>
           {busy ? 'Saving…' : 'Suggest it'}
         </button>
       </form>
@@ -329,7 +329,7 @@ function Ranking({ night, token, onChange }: PhaseProps) {
           {error}
         </p>
       )}
-      <button type="button" disabled={busy} onClick={() => void handleSubmit()}>
+      <button type="button" disabled={busy} aria-busy={busy} onClick={() => void handleSubmit()}>
         {busy ? 'Saving…' : 'Submit my ranking'}
       </button>
     </>
@@ -420,7 +420,7 @@ function Progress({ night, token, onChange, onRefresh }: PhaseProps & { onRefres
               {error}
             </p>
           )}
-          <button type="button" className="secondary" disabled={busy} onClick={() => void handleAdvance()}>
+          <button type="button" className="secondary" disabled={busy} aria-busy={busy} onClick={() => void handleAdvance()}>
             {busy ? 'Closing…' : `Close this round and go to ${nextStep}`}
           </button>
         </>

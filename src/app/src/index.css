@@ -91,8 +91,14 @@ button {
   cursor: pointer;
 }
 
+/* Disabled means "not yet", like an empty suggest box, so no spinner. The spinner is only for a
+   button that is actually sending, which says so with aria-busy. */
 button:disabled {
   opacity: 0.6;
+  cursor: default;
+}
+
+button[aria-busy='true'] {
   cursor: progress;
 }
 

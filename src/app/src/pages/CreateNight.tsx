@@ -107,7 +107,7 @@ export default function CreateNight() {
           </p>
         )}
 
-        <button type="submit" disabled={status.kind === 'sending'}>
+        <button type="submit" disabled={status.kind === 'sending'} aria-busy={status.kind === 'sending'}>
           {status.kind === 'sending' ? 'Sending…' : 'Send invitations'}
         </button>
       </form>
