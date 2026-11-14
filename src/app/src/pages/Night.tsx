@@ -34,6 +34,9 @@ function formatDate(date: string): string {
   })
 }
 
+/** Slow enough to stay far under the API's 5 requests a second with a full sofa of eight. */
+const POLL_INTERVAL_MS = 15_000
+
 type State = { kind: 'loading' } | { kind: 'loaded'; night: NightView } | { kind: 'failed'; message: string }
 
 /**
@@ -63,6 +66,21 @@ export default function Night() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // Waiting on others: check again now and then, so the next round shows up without a reload.
+  // Only while this person has answered, so a refresh never lands on a half-typed suggestion or a
+  // half-sorted list, and only while the tab is visible. A failed check keeps what is on screen.
+  const waiting = state.kind === 'loaded' && state.night.phase !== 'done' && state.night.hasAnswered
+  useEffect(() => {
+    if (!waiting) return
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      getNight(nightId, token)
+        .then((night) => setState({ kind: 'loaded', night }))
+        .catch(() => {})
+    }, POLL_INTERVAL_MS)
+    return () => window.clearInterval(timer)
+  }, [waiting, nightId, token])
 
   if (state.kind === 'loading') return <p>Loading…</p>
 

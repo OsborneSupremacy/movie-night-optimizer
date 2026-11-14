@@ -64,6 +64,12 @@ public class NightEmailsTests
     }
 
     [Fact]
+    public void TestModeSubject_PutsWhoItWasForFirst() =>
+        // Every diverted message lands in one inbox, each with a different person's link.
+        EmailSender.TestModeSubject("one@example.com", "Pick a movie for Saturday, November 14")
+            .Should().Be("[TEST for one@example.com] Pick a movie for Saturday, November 14");
+
+    [Fact]
     public void Rank_CountsTheSuggestions()
     {
         var night = Night(NightPhase.Ranking, Person("a", "Alien"), Person("b", "Big"), Person("c", "Cars"));

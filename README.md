@@ -46,16 +46,7 @@ three nights a day, because creating a night mails addresses a stranger typed.
 The site and the API share one origin, `movienight.osbornesupremacy.com`. CloudFront sends
 `/api/*` to API Gateway and everything else to S3, so there is no CORS to configure.
 
-```mermaid
-flowchart TD
-    People[Family members<br/>inbox and browser] --> CloudFront
-    CloudFront -->|everything else| S3[S3<br/>static React site]
-    CloudFront -->|/api/*| ApiGateway[API Gateway<br/>HTTP API]
-    ApiGateway --> Lambda[Lambda<br/>router]
-    Lambda <--> DynamoDB[(DynamoDB)]
-    Lambda --> SES
-    SES -->|email| People
-```
+![Architecture: CloudFront serves the S3 site and routes /api/* to API Gateway, which invokes one Lambda that reads and writes DynamoDB and sends mail through SES.](docs/architecture.svg)
 
 ### Repository layout
 

@@ -36,7 +36,7 @@ internal class EmailSender
 
     /// <summary>
     /// Sends one message to one person. Outside live mode it goes to the test recipient instead,
-    /// with " - TEST MODE" on the subject, and is not sent at all if there is no test recipient.
+    /// with <see cref="TestModeSubject"/>, and is not sent at all if there is no test recipient.
     /// </summary>
     public async Task SendAsync(string to, string subject, string htmlBody, string textBody)
     {
@@ -49,7 +49,7 @@ internal class EmailSender
             Destination = new Destination { ToAddresses = [_liveMode ? to : _testRecipient] },
             Message = new Message
             {
-                Subject = new Content(subject + (_liveMode ? string.Empty : " - TEST MODE")),
+                Subject = new Content(_liveMode ? subject : TestModeSubject(to, subject)),
                 Body = new Body
                 {
                     Html = new Content(htmlBody),
@@ -60,6 +60,16 @@ internal class EmailSender
 
         await _sesClient.SendEmailAsync(request).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// The subject a diverted message carries: who it was really for, first.
+    /// </summary>
+    /// <remarks>
+    /// In test mode every participant's mail lands in one inbox, and each carries a different
+    /// person's link. Without the address up front there is no telling whose link is whose.
+    /// </remarks>
+    internal static string TestModeSubject(string to, string subject) =>
+        $"[TEST for {to}] {subject}";
 
     /// <summary>
     /// Sends each message on its own, so one address SES refuses doesn't stop the rest. Returns

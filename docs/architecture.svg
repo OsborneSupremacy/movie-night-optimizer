@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 660" width="1240" height="660" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#4a4458"/>
+    </marker>
+    <style>
+      .box { fill: #ffffff; stroke: #cfc9da; stroke-width: 1.5; }
+      .name { font-size: 19px; font-weight: 700; fill: #1f1c28; }
+      .detail { font-size: 14px; fill: #5b5468; }
+      .edge { stroke: #4a4458; stroke-width: 2; fill: none; }
+      .label { font-size: 14px; fill: #4a4458; font-weight: 600; }
+      .note { font-size: 14px; fill: #6b6478; }
+    </style>
+  </defs>
+
+  <rect width="1240" height="660" fill="#f7f5fa"/>
+  <text x="30" y="44" font-size="24" font-weight="700" fill="#1f1c28">Movie Night Optimizer</text>
+  <text x="30" y="70" class="note">One origin, one Lambda, one table. Every piece is serverless and defined in Terraform.</text>
+
+  <!-- Route 53 + ACM -->
+  <rect class="box" x="260" y="100" width="210" height="100" rx="10" stroke-dasharray="6 4"/>
+  <rect x="260" y="100" width="6" height="100" rx="3" fill="#8c4fff"/>
+  <text x="280" y="132" class="name">Route 53 + ACM</text>
+  <text x="280" y="156" class="detail">DNS for the domain,</text>
+  <text x="280" y="176" class="detail">and its TLS certificate</text>
+  <path class="edge" d="M365,200 L365,276" stroke-dasharray="5 4"/>
+
+  <!-- People -->
+  <rect class="box" x="30" y="280" width="170" height="120" rx="10"/>
+  <rect x="30" y="280" width="6" height="120" rx="3" fill="#f5c518"/>
+  <text x="50" y="316" class="name">The family</text>
+  <text x="50" y="342" class="detail">a browser, and</text>
+  <text x="50" y="362" class="detail">an inbox each</text>
+  <text x="50" y="382" class="detail">(at most 8 people)</text>
+
+  <!-- CloudFront -->
+  <rect class="box" x="260" y="280" width="210" height="120" rx="10"/>
+  <rect x="260" y="280" width="6" height="120" rx="3" fill="#8c4fff"/>
+  <text x="280" y="316" class="name">CloudFront</text>
+  <text x="280" y="342" class="detail">the one origin for the</text>
+  <text x="280" y="362" class="detail">site and the API, so</text>
+  <text x="280" y="382" class="detail">there is no CORS</text>
+
+  <!-- S3 -->
+  <rect class="box" x="540" y="100" width="230" height="100" rx="10"/>
+  <rect x="540" y="100" width="6" height="100" rx="3" fill="#7aa116"/>
+  <text x="560" y="132" class="name">S3</text>
+  <text x="560" y="156" class="detail">the React site, private,</text>
+  <text x="560" y="176" class="detail">read by CloudFront only</text>
+
+  <!-- API Gateway -->
+  <rect class="box" x="540" y="280" width="230" height="120" rx="10"/>
+  <rect x="540" y="280" width="6" height="120" rx="3" fill="#e7157b"/>
+  <text x="560" y="316" class="name">API Gateway</text>
+  <text x="560" y="342" class="detail">HTTP API, six routes</text>
+  <text x="560" y="362" class="detail">under /api, throttled to</text>
+  <text x="560" y="382" class="detail">5 requests a second</text>
+
+  <!-- Lambda -->
+  <rect class="box" x="830" y="280" width="200" height="120" rx="10"/>
+  <rect x="830" y="280" width="6" height="120" rx="3" fill="#ed7100"/>
+  <text x="850" y="316" class="name">Lambda</text>
+  <text x="850" y="342" class="detail">one .NET 10 router on</text>
+  <text x="850" y="362" class="detail">arm64, a handler per</text>
+  <text x="850" y="382" class="detail">route key</text>
+
+  <!-- DynamoDB -->
+  <rect class="box" x="1070" y="280" width="150" height="120" rx="10"/>
+  <rect x="1070" y="280" width="6" height="120" rx="3" fill="#4d72f3"/>
+  <text x="1090" y="316" class="name">DynamoDB</text>
+  <text x="1090" y="342" class="detail">a partition per</text>
+  <text x="1090" y="362" class="detail">night, gone after</text>
+  <text x="1090" y="382" class="detail">30 days (TTL)</text>
+
+  <!-- SES -->
+  <rect class="box" x="830" y="480" width="200" height="100" rx="10"/>
+  <rect x="830" y="480" width="6" height="100" rx="3" fill="#dd344c"/>
+  <text x="850" y="512" class="name">SES</text>
+  <text x="850" y="536" class="detail">sends only; no inbound</text>
+  <text x="850" y="556" class="detail">mail to handle</text>
+
+  <!-- Edges -->
+  <path class="edge" d="M200,340 L258,340" marker-end="url(#arrow)"/>
+  <text x="206" y="330" class="label">HTTPS</text>
+
+  <path class="edge" d="M470,310 C505,310 505,150 538,150" marker-end="url(#arrow)"/>
+  <text x="478" y="226" class="label">/*</text>
+
+  <path class="edge" d="M470,340 L538,340" marker-end="url(#arrow)"/>
+  <text x="480" y="330" class="label">/api/*</text>
+
+  <path class="edge" d="M770,340 L828,340" marker-end="url(#arrow)"/>
+
+  <path class="edge" d="M1030,340 L1068,340" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+
+  <path class="edge" d="M930,400 L930,478" marker-end="url(#arrow)"/>
+
+  <path class="edge" d="M830,530 L115,530 L115,402" marker-end="url(#arrow)"/>
+  <text x="300" y="520" class="label">three emails per person: suggest a movie, rank the others, the winner</text>
+
+  <text x="30" y="630" class="note">Each emailed link carries a personal token in its URL fragment; only its SHA-256 hash is stored. Opening a link only reads; answering takes a button press.</text>
+</svg>
