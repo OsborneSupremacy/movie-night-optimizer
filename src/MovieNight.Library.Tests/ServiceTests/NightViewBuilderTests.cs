@@ -68,6 +68,19 @@ public class NightViewBuilderTests
     }
 
     [Fact]
+    public void Build_PendingNight_ShowsTheOrganizerWhoWillBeInvited()
+    {
+        var night = Night(NightPhase.Pending, Person("a", isOrganizer: true), Person("b"), Person("c") with { OptedOut = true });
+
+        var view = NightViewBuilder.Build(night, night.Participants[0]);
+
+        view.Phase.Should().Be("pending");
+        view.Guests.Should().Equal("b@example.com");
+        view.WaitingOn.Should().BeEmpty();
+        NightViewBuilder.Build(night, night.Participants[1]).Guests.Should().BeEmpty();
+    }
+
+    [Fact]
     public void Build_NotTheOrganizer_SeesNobodysAddress()
     {
         var night = Night(NightPhase.Collecting, Person("a", "Alien", isOrganizer: true), Person("b"));

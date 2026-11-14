@@ -54,8 +54,9 @@ export default function CreateNight() {
         <p className="eyebrow">Movie night · {formatDate(date)}</p>
         <h1>Check your inbox</h1>
         <p>
-          All {status.invited} of you, you included, have been emailed a link to suggest a movie. When everyone has,
-          you'll all get a link to rank them.
+          We've emailed {organizerEmail.trim()} to make sure the address is yours. Open the link in that email to send
+          the invitations to the other {status.invited - 1 === 1 ? 'person' : `${status.invited - 1} people`}. Nobody
+          else has been emailed yet.
         </p>
         {status.optedOut > 0 && (
           <p>

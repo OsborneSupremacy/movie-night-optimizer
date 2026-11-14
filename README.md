@@ -15,6 +15,7 @@ A night moves through three phases and only ever forwards:
 
 | Phase        | What's happening                                                      |
 |--------------|-----------------------------------------------------------------------|
+| `Pending`    | The organizer confirms, from an email, that the address is theirs.    |
 | `Collecting` | Everyone suggests one movie.                                          |
 | `Ranking`    | Everyone ranks the suggestions that aren't theirs, best first.        |
 | `Done`       | The rankings are scored and the results are sent.                     |
@@ -34,8 +35,11 @@ can't stall the night. If only one movie was suggested, the night skips ranking 
 to the result. The phase change is conditional on the phase the night was read in, so two people
 finishing at the same moment can't both send the next round of email.
 
-Creating a night mails addresses a stranger typed, from an SES account other applications share,
-so there are limits. One inbox can start at most three nights a day, and the whole app at most 50.
+Creating a night emails only the organizer, asking them to confirm the address is theirs. The
+invitations go out when they press the button on the page that email links to, so typing somebody
+else's address as the organizer gets that person one email, which names nobody, and nothing more.
+Creating a night still mails an address a stranger typed, from an SES account other applications
+share, so there are limits as well. One inbox can start at most three nights a day, and the whole app at most 50.
 Every email has a link to stop email for good. That adds a hash of the inbox to a do-not-email list,
 which is checked before every send, and takes the person out of their night so no round waits on
 them.
@@ -83,11 +87,12 @@ The site and the API share one origin, `movienight.osbornesupremacy.com`. CloudF
 | Route                                   | What it does                                          |
 |-----------------------------------------|-------------------------------------------------------|
 | `GET /api/health`                       | Answers 200 without touching anything else.           |
-| `POST /api/nights`                      | Creates a night and sends the suggestion emails.      |
+| `POST /api/nights`                      | Creates a pending night and emails the organizer.     |
 | `GET /api/nights/{nightId}`             | What this participant should see right now.           |
 | `POST /api/nights/{nightId}/suggestion` | Records this participant's movie.                     |
 | `POST /api/nights/{nightId}/ranking`    | Records this participant's ranking.                   |
 | `POST /api/nights/{nightId}/advance`    | Organizer only: closes the current round early.       |
+| `POST /api/nights/{nightId}/confirm`    | Organizer only: confirms and sends the invitations.   |
 | `POST /api/nights/{nightId}/opt-out`    | Never email this participant's inbox again.           |
 
 Every route but the first two identifies the caller by the `X-Participant-Token` header.
@@ -130,6 +135,7 @@ dotnet test
 - [x] Turning away a movie somebody else already suggested
 - [x] CI: build, tests and Terraform checks on every push
 - [x] An app-wide daily cap, and a do-not-email list with a link in every email
+- [x] The organizer confirms their address before any invitation goes out
 - [x] TMDB titles, years and posters, falling back to the typed title
 - [x] Rating, runtime, genres, streaming services and trailer on each ranking card
 

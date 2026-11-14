@@ -318,3 +318,14 @@ button.icon:disabled {
 .your-pick .facts-line {
   font-size: 0.9rem;
 }
+
+.guest-list {
+  margin: 0 0 1.5rem;
+  padding-left: 1.25rem;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.guest-list li {
+  margin-bottom: 0.25rem;
+}

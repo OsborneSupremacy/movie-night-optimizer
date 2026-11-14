@@ -8,7 +8,7 @@ Every family movie night starts with the same twenty minutes: someone suggests a
 
 ## How Movie Night Optimizer solves it
 
-The organizer enters everyone's email address and the date. That's the only setup: no accounts, no app to install.
+The organizer enters everyone's email address and the date, then confirms their own address from the email that arrives. That's the only setup: no accounts, no app to install.
 
 1. **Everyone suggests one movie.** Each person gets an email with their own link and suggests a movie on a simple page. Each suggestion is looked up on TMDB, so "princess bride" comes back as *The Princess Bride* (1987), with its poster. Nobody sees the others' picks until they've made their own, so nobody anchors on the first suggestion.
 2. **Everyone ranks the others.** When the last suggestion is in, everyone gets a second email and puts the other suggestions in order, best first. Each card shows what helps you rank a movie you haven't seen: its rating, runtime, genres, where it streams and a trailer link. Nobody ranks their own movie, so nobody can vote it to the top.
@@ -22,7 +22,7 @@ If someone never answers, the organizer can close the round and move on, so one 
 
 - **Amazon CloudFront** is the single front door, at `movienight.osbornesupremacy.com`. It serves the site from S3 and sends `/api/*` to API Gateway. With one origin for both, the browser never makes a cross-origin request, so there's no CORS to configure. A response headers policy adds HSTS, a strict content security policy and protection against being framed by other sites.
 - **Amazon S3** holds the React front end. The bucket is private and readable only by CloudFront, through origin access control.
-- **Amazon API Gateway (HTTP API)** exposes six routes under `/api`, throttled to 5 requests a second.
+- **Amazon API Gateway (HTTP API)** exposes eight routes under `/api`, throttled to 5 requests a second.
 - **AWS Lambda** runs one .NET 10 function on arm64. It dispatches each request on its route key to the handler for that route, so one small deployment serves the whole API. It is compiled ahead of time (ReadyToRun) and given one full vCPU, which brought the first request after an idle spell from 1.8 s to 0.7 s. Warm requests take milliseconds.
 - **Amazon DynamoDB** stores each night in a partition of its own: a summary item plus one item per person, so one query reads the whole night. A TTL deletes nights after 30 days, and on-demand billing means an idle app costs almost nothing.
 - **AWS Secrets Manager** holds the TMDB API token. The Lambda may read that one secret and nothing else, and reads it once per instance.
@@ -37,6 +37,7 @@ If someone never answers, the organizer can close the round and move on, so one 
 - **Opening a link never changes anything.** Corporate mail scanners follow every link in an email. If opening a link recorded an answer, a scanner could vote for someone. Every link only reads; answering takes a button press.
 - **No accounts, and no stored secrets.** Each person's link carries a random 256-bit token in the URL fragment, which browsers never send to servers, so it stays out of access logs. The API receives the token in a header, and only its SHA-256 hash is stored. Each round's email carries a fresh token, so every link anyone has been sent keeps working.
 - **Exactly one round of email, even under a race.** The last two people often answer at almost the same moment. Every write is a DynamoDB transaction conditional on the night's current phase, and the phase moves on only from the phase it was read in. However the requests interleave, only one of them moves the night on and sends the next email.
+- **The organizer proves the address is theirs before anyone else is emailed.** Creating a night sends one email, to the organizer, and it names nobody else. The invitations go out only when the organizer presses "Send the invitations" on the page that email links to. Typing somebody else's address as the organizer gets that person one confirmation email, and nothing reaches the guests.
 - **Abuse limits on a public endpoint.** Creating a night sends mail to addresses a stranger typed, from an SES account other apps share. Each inbox can start at most three nights a day, with at most eight people per night, and address variants like `me+1@gmail.com` count as the same inbox. Someone could invent new organizer addresses, so the whole app also stops at 50 nights a day.
 - **A way out for anyone who gets mail.** Every email ends with a link to stop email for good. Pressing the button on its page adds the inbox to a permanent do-not-email list. The list stores a hash of the inbox, never the address. It's checked before every send, so no future night from anyone can reach that inbox. The person is also taken out of their current night, so no round waits on them.
 - **TMDB is an enhancement, never a dependency.** The lookup is a search, then one request for the movie's details. Both together get 1.5 seconds, token included; in practice they take 0.2 to 0.4 seconds. If only the details fail, the title, year and poster are kept. A timeout, a 429 from rate limiting, a 5xx, unreadable JSON, a missing secret or no match all mean the same thing: the suggestion is saved exactly as typed, and the app carries on. Typing a year ("Dune 1984") picks the right film when titles repeat. The "You suggested" screen shows the matched poster and year, so a wrong match is easy to spot and change.
@@ -54,9 +55,10 @@ The first request after the site has been idle takes about a second, so click th
 | Time | On screen | Say |
 |---|---|---|
 | 0:00–0:15 | Title card, then the home page | The problem: twenty minutes of arguing, and the quiet people never get a say. |
-| 0:15–0:35 | Fill in the organizer's address, three family addresses, the date. Send. | No accounts, nothing to install. Just the emails and a date. |
-| 0:35–0:55 | The inbox: four "Pick a movie" emails, one to each person. Point at the To lines, then open the organizer's. | Everyone gets their own link. Opening it only reads; answering takes a button. |
-| 0:55–1:30 | Suggest a movie as each person, sped up after the first. Type one in lower case ("princess bride") so it comes back with its proper title, year and poster. Have one person try a movie already picked, to show "Great minds!". Leave the organizer's page open; after the last suggestion it switches to ranking on its own. | Every movie is looked up on TMDB. Nobody sees the others' picks until they've made their own, and each movie can only be suggested once. |
+| 0:15–0:30 | Fill in the organizer's address, three family addresses, the date. Send. | No accounts, nothing to install. Just the emails and a date. |
+| 0:30–0:45 | The inbox: one "Confirm your movie night" email. Open it, then press "Send the invitations". | Only the organizer is emailed first. Nobody else hears a thing until they prove the address is theirs. |
+| 0:45–1:00 | The inbox: three "Pick a movie" emails, one to each guest. Point at the To lines. | Everyone gets their own link. Opening it only reads; answering takes a button. |
+| 1:00–1:30 | Suggest a movie as each person, sped up after the first. Type one in lower case ("princess bride") so it comes back with its proper title, year and poster. Have one person try a movie already picked, to show "Great minds!". Leave the organizer's page open; after the last suggestion it switches to ranking on its own. | Every movie is looked up on TMDB. Nobody sees the others' picks until they've made their own, and each movie can only be suggested once. |
 | 1:30–2:00 | Open a "Rank the movies" email. Point at a card's rating, runtime and "On Disney Plus", drag the posters into order, show that their own movie isn't on it, and submit. Sped-up cut through the rest. | You rank everyone else's movie, never your own, and each card tells you enough to rank one you haven't seen. |
 | 2:00–2:15 | The results page and the results email, which says how long the winner is and where to stream it. | Borda count. Ties go to more first-place votes. |
 | 2:15–2:40 | The architecture diagram. | CloudFront in front of S3 and an HTTP API, one Lambda, DynamoDB, SES, and Secrets Manager for the TMDB token. All serverless, all Terraform. If TMDB is down, nothing breaks. |
@@ -65,7 +67,6 @@ The first request after the site has been idle takes about a second, so click th
 
 ## What a real launch would add
 
-- **Confirm the organizer first.** Today anyone can type any organizer address. Emailing the organizer first, and inviting the guests only once they press a button, would require a real inbox for every night.
 - **Require a TMDB match**, or confirm the match with the person before saving. Suggestions are looked up on TMDB today, but one that finds no match is still accepted as free text. Requiring a match would make harassment-by-title much harder. A narrow toxicity check with Amazon Comprehend (hate speech and harassment only) could cover the free text that remains, since real titles like *Kill Bill* would trip its violence and profanity scores.
 - **Autocomplete as you type**, from TMDB, through a cached search endpoint.
 - **A WAF rate-based rule on CloudFront**, to limit requests per IP address.

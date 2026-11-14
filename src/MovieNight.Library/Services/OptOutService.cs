@@ -1,4 +1,4 @@
-namespace MovieNight.Library.Services;
+﻿namespace MovieNight.Library.Services;
 
 /// <summary>
 /// POST /api/nights/{nightId}/opt-out. The "don't email me again" link in every email. Adds the
@@ -68,7 +68,8 @@ internal class OptOutService : IApiGatewayHandler
         var (found, updated) = await _nightProvider.TryGetNightAsync(night.NightId).ConfigureAwait(false);
 
         // A round with nobody left in it who can answer would wait forever.
-        if(found && updated.Phase != NightPhase.Done && NightProgress.IsRoundComplete(updated)
+        // A pending night only moves on when its organizer confirms it.
+        if(found && updated.Phase is NightPhase.Collecting or NightPhase.Ranking && NightProgress.IsRoundComplete(updated)
             && NightProgress.Suggesters(updated).Count > 0)
             await _phaseAdvancer.TryAdvanceAsync(updated).ConfigureAwait(false);
 

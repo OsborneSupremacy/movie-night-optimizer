@@ -1,4 +1,4 @@
-namespace MovieNight.Library.Services;
+﻿namespace MovieNight.Library.Services;
 
 /// <summary>
 /// POST /api/nights/{nightId}/advance. Organizer only. Closes the current round without waiting
@@ -12,6 +12,8 @@ internal class AdvanceNightService : IApiGatewayHandler
     internal const string AlreadyDoneMessage = "This movie night has already been decided.";
 
     internal const string NoSuggestionsMessage = "Nobody has suggested a movie yet.";
+
+    internal const string NotConfirmedMessage = "Confirm this movie night first, so the invitations go out.";
 
     private readonly ApiGatewayAdapter _adapter;
 
@@ -50,6 +52,9 @@ internal class AdvanceNightService : IApiGatewayHandler
 
         if(!participant.IsOrganizer)
             return new Result<NightView>(new InvalidOperationException(OrganizerOnlyMessage), HttpStatusCode.Forbidden);
+
+        if(night.Phase == NightPhase.Pending)
+            return new Result<NightView>(new InvalidOperationException(NotConfirmedMessage), HttpStatusCode.Conflict);
 
         if(night.Phase == NightPhase.Done)
             return new Result<NightView>(new InvalidOperationException(AlreadyDoneMessage), HttpStatusCode.Conflict);

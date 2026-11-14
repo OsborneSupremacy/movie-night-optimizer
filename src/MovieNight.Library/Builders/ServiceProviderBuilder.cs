@@ -73,5 +73,6 @@ internal static class ServiceProviderBuilder
             .AddKeyedSingleton<IApiGatewayHandler, SubmitSuggestionService>("post /api/nights/{nightid}/suggestion")
             .AddKeyedSingleton<IApiGatewayHandler, SubmitRankingService>("post /api/nights/{nightid}/ranking")
             .AddKeyedSingleton<IApiGatewayHandler, AdvanceNightService>("post /api/nights/{nightid}/advance")
-            .AddKeyedSingleton<IApiGatewayHandler, OptOutService>("post /api/nights/{nightid}/opt-out");
+            .AddKeyedSingleton<IApiGatewayHandler, OptOutService>("post /api/nights/{nightid}/opt-out")
+            .AddKeyedSingleton<IApiGatewayHandler, ConfirmNightService>("post /api/nights/{nightid}/confirm");
 }

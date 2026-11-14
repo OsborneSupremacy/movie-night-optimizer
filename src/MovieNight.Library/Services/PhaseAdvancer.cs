@@ -64,7 +64,14 @@ internal class PhaseAdvancer
         if(!found)
             return true;
 
-        var emails = advancedNight.Participants
+        // Confirming starts the night: the guests get their invitations. The organizer is on the page
+        // already, and the link in the email they confirmed from is theirs for the rest of the night.
+        var organizerEmail = NightProgress.Organizer(advancedNight).Email;
+        var recipients = next == NightPhase.Collecting
+            ? advancedNight.Participants.Where(participant => !participant.IsOrganizer)
+            : advancedNight.Participants;
+
+        var emails = recipients
             .Select(participant =>
             {
                 var token = tokens[participant.ParticipantId];
@@ -74,9 +81,12 @@ internal class PhaseAdvancer
                 return new OutgoingEmail
                 {
                     To = participant.Email,
-                    Content = next == NightPhase.Ranking
-                        ? NightEmails.Rank(advancedNight, link, stopLink)
-                        : NightEmails.Results(advancedNight, link, stopLink)
+                    Content = next switch
+                    {
+                        NightPhase.Collecting => NightEmails.Suggest(advancedNight, organizerEmail, link, stopLink),
+                        NightPhase.Ranking => NightEmails.Rank(advancedNight, link, stopLink),
+                        _ => NightEmails.Results(advancedNight, link, stopLink)
+                    }
                 };
             })
             .ToImmutableList();

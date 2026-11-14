@@ -81,6 +81,20 @@ public class NightProgressTests
     }
 
     [Fact]
+    public void NextPhase_Pending_IsCollecting() =>
+        NightProgress.NextPhase(Night(NightPhase.Pending, Person("a", isOrganizer: true), Person("b")))
+            .Should().Be(NightPhase.Collecting);
+
+    [Fact]
+    public void HasAnswered_Pending_OnlyTheOrganizerHasSomethingToDo()
+    {
+        var night = Night(NightPhase.Pending, Person("a", isOrganizer: true), Person("b"));
+
+        NightProgress.HasAnswered(night, night.Participants[0]).Should().BeFalse();
+        NightProgress.HasAnswered(night, night.Participants[1]).Should().BeTrue();
+    }
+
+    [Fact]
     public void NextPhase_CollectingWithTwoOrMoreSuggestions_IsRanking() =>
         NightProgress.NextPhase(Night(NightPhase.Collecting, Person("a", "Alien"), Person("b", "Big")))
             .Should().Be(NightPhase.Ranking);

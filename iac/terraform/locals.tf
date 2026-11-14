@@ -16,5 +16,6 @@ locals {
     "POST /api/nights/{nightId}/ranking",
     "POST /api/nights/{nightId}/advance",
     "POST /api/nights/{nightId}/opt-out",
+    "POST /api/nights/{nightId}/confirm",
   ]
 }

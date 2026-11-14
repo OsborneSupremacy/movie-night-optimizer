@@ -62,7 +62,7 @@ export interface CreateNightResponse {
 export const createNight = (body: CreateNightRequest) =>
   request<CreateNightResponse>('POST', '/nights', { body })
 
-export type NightPhase = 'collecting' | 'ranking' | 'done'
+export type NightPhase = 'pending' | 'collecting' | 'ranking' | 'done'
 
 /** What helps people rank a movie they don't know. Any part can be empty. Mirrors MovieDetails. */
 export interface MovieDetails {
@@ -119,6 +119,8 @@ export interface NightView {
   results: ResultView[]
   /** For the organizer only: who hasn't answered the current round. */
   waitingOn: string[]
+  /** For the organizer of a pending night only: who the invitations will go to. */
+  guests: string[]
 }
 
 const nightPath = (nightId: string) => `/nights/${encodeURIComponent(nightId)}`
@@ -136,6 +138,10 @@ export const submitRanking = (nightId: string, token: string, ranking: string[])
 /** The "don't email me again" link: lists this inbox for good and takes them out of the night. */
 export const optOut = (nightId: string, token: string) =>
   request<void>('POST', `${nightPath(nightId)}/opt-out`, { token })
+
+/** Organizer only: confirms the address was theirs, and sends the guests their invitations. */
+export const confirmNight = (nightId: string, token: string) =>
+  request<NightView>('POST', `${nightPath(nightId)}/confirm`, { token })
 
 /** Organizer only: closes the current round without waiting for everyone. */
 export const advanceNight = (nightId: string, token: string) =>

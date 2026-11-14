@@ -54,7 +54,13 @@ internal static class NightViewBuilder
                     })
                     .ToImmutableList()
                 : [],
-            WaitingOn = viewer.IsOrganizer
+            Guests = viewer.IsOrganizer && night.Phase == NightPhase.Pending
+                ? night.Participants
+                    .Where(participant => !participant.IsOrganizer && !participant.OptedOut)
+                    .Select(participant => participant.Email)
+                    .ToImmutableList()
+                : [],
+            WaitingOn = viewer.IsOrganizer && night.Phase != NightPhase.Pending
                 ? night.Participants
                     .Where(participant => !NightProgress.HasAnswered(night, participant))
                     .Select(participant => participant.Email)

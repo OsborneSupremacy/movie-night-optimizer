@@ -3,12 +3,15 @@
 namespace MovieNight.Library.Services;
 
 /// <summary>
-/// POST /api/nights. Creates a night in <see cref="NightPhase.Collecting"/> and emails every
-/// participant, organizer included, a link to the page where they suggest a movie.
+/// POST /api/nights. Creates a night in <see cref="NightPhase.Pending"/> and emails only the
+/// organizer, asking them to confirm the address is theirs. The invitations go out when they do
+/// (<see cref="ConfirmNightService"/>).
 /// </summary>
 /// <remarks>
-/// The daily limit comes before anything else. This endpoint sends mail to addresses a stranger
-/// typed, from an SES account other applications share, and needs no sign-in to call.
+/// This endpoint needs no sign-in and mails an address a stranger typed, from an SES account other
+/// applications share. Confirming first means the only mail an unconfirmed request can cause is
+/// one email to the organizer address, at most three times a day, and it names nobody else. The
+/// limits and the do-not-email list are checked before even that.
 /// </remarks>
 [UsedImplicitly]
 internal class CreateNightService : IApiGatewayHandler
@@ -82,6 +85,9 @@ internal class CreateNightService : IApiGatewayHandler
         if(!await _nightProvider.TryReserveApplicationSlotAsync().ConfigureAwait(false))
             return new Result<CreateNightResponse>(new InvalidOperationException(ApplicationLimitMessage), HttpStatusCode.TooManyRequests);
 
+        // Every participant gets a token so that the item has a hash to hold, but only the
+        // organizer's is ever sent. The guests' tokens are thrown away; confirming makes them
+        // new ones and puts those in their invitations.
         var invitees = reachableGuests
             .Prepend(organizerEmail)
             .Select((email, index) => new Invitee
@@ -97,7 +103,7 @@ internal class CreateNightService : IApiGatewayHandler
         {
             NightId = Guid.NewGuid().ToString("N"),
             Date = DateOnly.ParseExact(request.Date, "yyyy-MM-dd", CultureInfo.InvariantCulture),
-            Phase = NightPhase.Collecting,
+            Phase = NightPhase.Pending,
             Participants = invitees
                 .Select(invitee => new Participant
                 {
@@ -111,24 +117,26 @@ internal class CreateNightService : IApiGatewayHandler
 
         await _nightProvider.SaveNewNightAsync(night).ConfigureAwait(false);
 
+        var organizer = invitees[0];
+
         var failed = await _emailSender
-            .SendEachAsync(invitees.Select(invitee => new OutgoingEmail
-            {
-                To = invitee.Email,
-                Content = NightEmails.Suggest(
-                    night,
-                    organizerEmail,
-                    NightEmails.BuildLink(_siteUrl, night.NightId, invitee.Token),
-                    NightEmails.BuildStopLink(_siteUrl, night.NightId, invitee.Token)
-                )
-            }))
+            .SendEachAsync([
+                new OutgoingEmail
+                {
+                    To = organizer.Email,
+                    Content = NightEmails.Confirm(
+                        night,
+                        NightEmails.BuildLink(_siteUrl, night.NightId, organizer.Token),
+                        NightEmails.BuildStopLink(_siteUrl, night.NightId, organizer.Token)
+                    )
+                }
+            ])
             .ConfigureAwait(false);
 
-        // Some mail going astray is survivable: the organizer can close the round without them.
-        // None of it going is a night nobody can open, and the organizer should hear so now.
-        if(failed == invitees.Count)
+        // Without that one email nobody can confirm, and the night can never start.
+        if(failed > 0)
             return new Result<CreateNightResponse>(
-                new InvalidOperationException("The invitations couldn't be sent. Try again in a few minutes."),
+                new InvalidOperationException("The confirmation email couldn't be sent. Try again in a few minutes."),
                 HttpStatusCode.BadGateway
             );
 

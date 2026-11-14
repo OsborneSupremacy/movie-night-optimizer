@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import {
   advanceNight,
   ApiError,
+  confirmNight,
   getNight,
   submitRanking,
   submitSuggestion,
@@ -82,11 +83,12 @@ export default function Night() {
     <section>
       <p className="eyebrow">Movie night · {formatDate(night.date)}</p>
 
+      {night.phase === 'pending' && <Pending night={night} token={token} onChange={update} />}
       {night.phase === 'collecting' && <Collecting night={night} token={token} onChange={update} />}
       {night.phase === 'ranking' && <Ranking night={night} token={token} onChange={update} />}
       {night.phase === 'done' && <Results night={night} />}
 
-      {night.phase !== 'done' && (
+      {(night.phase === 'collecting' || night.phase === 'ranking') && (
         <Progress night={night} token={token} onChange={update} onRefresh={() => void load()} />
       )}
     </section>
@@ -97,6 +99,60 @@ interface PhaseProps {
   night: NightView
   token: string
   onChange: (night: NightView) => void
+}
+
+/**
+ * A night nobody has been invited to yet. The organizer lands here from the confirmation email,
+ * and pressing the button is what proves the address is theirs and sends the invitations.
+ */
+function Pending({ night, token, onChange }: PhaseProps) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleConfirm() {
+    setBusy(true)
+    setError('')
+    try {
+      onChange(await confirmNight(night.nightId, token))
+    } catch (caught) {
+      setError(messageOf(caught))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!night.isOrganizer) {
+    return (
+      <>
+        <h1>Not started yet</h1>
+        <p>This movie night is waiting for the person who planned it. You'll get an email when it starts.</p>
+      </>
+    )
+  }
+
+  return (
+    <>
+      <h1>Send the invitations?</h1>
+      <p>
+        Nobody has been emailed yet. Press the button to confirm this movie night is yours, and{' '}
+        {night.guests.length === 1 ? 'this person gets' : `these ${night.guests.length} people get`} a link to suggest
+        a movie:
+      </p>
+      <ul className="guest-list">
+        {night.guests.map((guest) => (
+          <li key={guest}>{guest}</li>
+        ))}
+      </ul>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      <button type="button" disabled={busy} onClick={() => void handleConfirm()}>
+        {busy ? 'Sending…' : 'Send the invitations'}
+      </button>
+    </>
+  )
 }
 
 function Collecting({ night, token, onChange }: PhaseProps) {

@@ -46,6 +46,8 @@ internal static class NightProgress
     public static bool HasAnswered(Night night, Participant participant) =>
         participant.OptedOut || night.Phase switch
         {
+            // Only the organizer has anything to do: confirm.
+            NightPhase.Pending => !participant.IsOrganizer,
             NightPhase.Collecting => participant.Suggestion.Length > 0,
             NightPhase.Ranking => !NeedsToRank(night, participant),
             _ => true
@@ -59,13 +61,21 @@ internal static class NightProgress
     /// Where the night goes when the current round closes.
     /// </summary>
     /// <remarks>
-    /// With one suggestion or none there is nothing to choose between, so collecting goes straight
-    /// to done rather than asking people to rank a list of one.
+    /// A pending night goes to collecting once the organizer confirms. With one suggestion or none
+    /// there is nothing to choose between, so collecting goes straight to done rather than asking
+    /// people to rank a list of one.
     /// </remarks>
     public static NightPhase NextPhase(Night night) =>
-        night.Phase == NightPhase.Collecting && Suggesters(night).Count > 1
-            ? NightPhase.Ranking
-            : NightPhase.Done;
+        night.Phase switch
+        {
+            NightPhase.Pending => NightPhase.Collecting,
+            NightPhase.Collecting when Suggesters(night).Count > 1 => NightPhase.Ranking,
+            _ => NightPhase.Done
+        };
+
+    /// <summary>The night's organizer, or <see cref="Night.EmptyParticipant"/> if it somehow has none.</summary>
+    public static Participant Organizer(Night night) =>
+        night.Participants.FirstOrDefault(participant => participant.IsOrganizer) ?? Night.EmptyParticipant;
 
     /// <summary>
     /// Whether a ranking names every movie this participant is to rank, each once, and nothing else.

@@ -70,38 +70,135 @@ public class NightServicesTests
     }
 
     [Fact]
-    public async Task CreateNight_SavesEveryoneAndEmailsEachALinkThatOpensTheirOwnPlace()
+    public async Task CreateNight_SavesEveryonePendingAndEmailsOnlyTheOrganizerToConfirm()
     {
         var result = await CreateNightService().ExecuteAsync(CreateRequest);
 
         result.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        var saved = _dynamoDb.ReceivedCalls()
-            .Select(call => call.GetArguments()[0])
-            .OfType<TransactWriteItemsRequest>()
-            .Single()
-            .TransactItems
-            .Select(item => item.Put.Item)
-            .Where(item => item["SK"].S.StartsWith("PARTICIPANT#"))
-            .ToList();
+        var puts = Transactions().Single().TransactItems.Select(item => item.Put.Item).ToList();
+        puts.Single(item => item["SK"].S == "META")["Phase"].S.Should().Be("Pending");
 
+        var saved = puts.Where(item => item["SK"].S.StartsWith("PARTICIPANT#")).ToList();
         saved.Should().HaveCount(3);
-        saved.Count(item => item["IsOrganizer"].BOOL == true).Should().Be(1);
+
+        // One email, to the organizer, and nobody else hears a thing until they confirm.
+        var sent = SentEmails().Single();
+        sent.Destination.ToAddresses.Should().Equal("Organizer@example.com");
+        sent.Message.Subject.Data.Should().StartWith("Confirm your movie night");
+
+        // Its link opens the organizer's own place in the night, and the token was never stored.
+        var token = TokenIn(sent.Message.Body.Text.Data);
+        var organizer = saved.Single(item => item["IsOrganizer"].BOOL == true);
+        organizer["TokenHashes"].SS.Should().Equal(SecretToken.Hash(token));
+        saved.SelectMany(item => item.Values).Select(value => value.S).Should().NotContain(token);
+    }
+
+    [Fact]
+    public async Task CreateNight_TheConfirmationEmailNamesNoGuest()
+    {
+        // Whoever typed the organizer address may not own it, and its owner shouldn't learn who
+        // they meant to invite.
+        await CreateNightService().ExecuteAsync(CreateRequest);
+
+        var body = SentEmails().Single().Message.Body;
+        body.Text.Data.Should().NotContain("one@example.com").And.NotContain("two@example.com");
+        body.Html.Data.Should().NotContain("one@example.com").And.NotContain("two@example.com");
+    }
+
+    [Fact]
+    public async Task CreateNight_TheConfirmationEmailFails_Is502()
+    {
+        _ses.SendEmailAsync(Arg.Any<SendEmailRequest>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new AmazonSimpleEmailServiceException("nope"));
+
+        var result = await CreateNightService().ExecuteAsync(CreateRequest);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadGateway);
+    }
+
+    [Fact]
+    public async Task Confirm_ByTheOrganizer_StartsTheNightAndInvitesOnlyTheGuests()
+    {
+        var pending = Night(NightPhase.Pending, Person("a", isOrganizer: true), Person("b"), Person("c"));
+        GivenTheNightReads(pending, pending with { Phase = NightPhase.Collecting });
+
+        var result = await ConfirmNightService().ExecuteAsync(new NightRequest { NightId = NightId, Token = TokenFor("a") });
+
+        result.IsSuccess.Should().BeTrue();
+
+        var advance = Transactions().Single();
+        advance.TransactItems[0].Update.ExpressionAttributeValues[":from"].S.Should().Be("Pending");
+        advance.TransactItems[0].Update.ExpressionAttributeValues[":to"].S.Should().Be("Collecting");
 
         var sent = SentEmails();
-        sent.Should().HaveCount(3);
+        sent.SelectMany(email => email.Destination.ToAddresses).Should().BeEquivalentTo(["b@example.com", "c@example.com"]);
+        sent.Should().OnlyContain(email => email.Message.Subject.Data.StartsWith("Pick a movie"));
+        sent.Should().OnlyContain(email => email.Message.Body.Text.Data.Contains("a@example.com added your address"));
 
-        foreach (var email in sent)
-        {
-            // The link's token hashes to the stored hash of the person it was sent to, and the
-            // token itself was never stored.
-            var token = TokenIn(email.Message.Body.Text.Data);
-            var to = email.Destination.ToAddresses.Single();
-            var item = saved.Single(candidate => candidate["Email"].S == to);
+        // Each invitation carries a new token whose hash went in with the phase change.
+        var addedHashes = advance.TransactItems.Skip(1).Select(item => item.Update.ExpressionAttributeValues[":hash"].SS.Single());
+        sent.Select(email => SecretToken.Hash(TokenIn(email.Message.Body.Text.Data))).Should().BeSubsetOf(addedHashes);
+    }
 
-            item["TokenHashes"].SS.Should().Equal(SecretToken.Hash(token));
-            saved.SelectMany(candidate => candidate.Values).Select(value => value.S).Should().NotContain(token);
-        }
+    [Fact]
+    public async Task Confirm_ByAGuest_Is403AndSendsNothing()
+    {
+        GivenTheNightReads(Night(NightPhase.Pending, Person("a", isOrganizer: true), Person("b")));
+
+        var result = await ConfirmNightService().ExecuteAsync(new NightRequest { NightId = NightId, Token = TokenFor("b") });
+
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        Transactions().Should().BeEmpty();
+        SentEmails().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Confirm_AgainOnANightUnderWay_ChangesAndSendsNothing()
+    {
+        GivenTheNightReads(Night(NightPhase.Collecting, Person("a", isOrganizer: true), Person("b")));
+
+        var result = await ConfirmNightService().ExecuteAsync(new NightRequest { NightId = NightId, Token = TokenFor("a") });
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Phase.Should().Be("collecting");
+        Transactions().Should().BeEmpty();
+        SentEmails().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Confirm_TwoClicksAtOnce_InviteOnce()
+    {
+        // The second click finds the phase already moved, and its conditional write fails.
+        var pending = Night(NightPhase.Pending, Person("a", isOrganizer: true), Person("b"));
+        GivenTheNightReads(pending);
+        _dynamoDb.TransactWriteItemsAsync(Arg.Any<TransactWriteItemsRequest>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(Cancelled("ConditionalCheckFailed", "None", "None"));
+
+        await ConfirmNightService().ExecuteAsync(new NightRequest { NightId = NightId, Token = TokenFor("a") });
+
+        SentEmails().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Advance_APendingNight_Is409()
+    {
+        GivenTheNightReads(Night(NightPhase.Pending, Person("a", isOrganizer: true), Person("b")));
+
+        var result = await AdvanceNightService().ExecuteAsync(new NightRequest { NightId = NightId, Token = TokenFor("a") });
+
+        result.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        Transactions().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SubmitSuggestion_BeforeTheNightIsConfirmed_Is409()
+    {
+        GivenTheNightReads(Night(NightPhase.Pending, Person("a", isOrganizer: true), Person("b")));
+
+        var result = await SubmitSuggestionService().ExecuteAsync(Suggestion("a", "Alien"));
+
+        result.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
     [Fact]
@@ -470,6 +567,8 @@ public class NightServicesTests
     }
 
     private CreateNightService CreateNightService() => new(_adapter, _nightProvider, _emailSender, _doNotEmail);
+
+    private ConfirmNightService ConfirmNightService() => new(_adapter, _nightReader, _phaseAdvancer);
 
     private OptOutService OptOutService() => new(_adapter, _nightReader, _nightProvider, _doNotEmail, _phaseAdvancer);
 

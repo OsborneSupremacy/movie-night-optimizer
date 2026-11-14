@@ -52,7 +52,7 @@
   <rect class="box" x="540" y="280" width="230" height="120" rx="10"/>
   <rect x="540" y="280" width="6" height="120" rx="3" fill="#e7157b"/>
   <text x="560" y="316" class="name">API Gateway</text>
-  <text x="560" y="342" class="detail">HTTP API, six routes</text>
+  <text x="560" y="342" class="detail">HTTP API, eight routes</text>
   <text x="560" y="362" class="detail">under /api, throttled to</text>
   <text x="560" y="382" class="detail">5 requests a second</text>
 
@@ -113,7 +113,7 @@
   <path class="edge" d="M1000,278 C1000,236 1145,250 1145,202" marker-end="url(#arrow)" stroke-dasharray="6 4"/>
 
   <path class="edge" d="M830,530 L115,530 L115,402" marker-end="url(#arrow)"/>
-  <text x="300" y="520" class="label">three emails per person: suggest a movie, rank the others, the winner</text>
+  <text x="250" y="520" class="label">email: the organizer confirms, then everyone suggests, ranks and hears the winner</text>
 
   <text x="30" y="630" class="note">Each emailed link carries a personal token in its URL fragment; only its SHA-256 hash is stored. Opening a link only reads; answering takes a button press.</text>
 </svg>

@@ -36,6 +36,39 @@ internal static class NightEmails
 
     private const string StopText = "Don't want email from Movie Night Optimizer? Stop it for good";
 
+    /// <summary>
+    /// The only email a new night sends: to the organizer, asking them to confirm the address is
+    /// theirs before anybody else hears a thing.
+    /// </summary>
+    /// <remarks>
+    /// Names nobody but the organizer. Whoever typed this address may not own it, and a stranger's
+    /// inbox shouldn't learn who they meant to invite.
+    /// </remarks>
+    public static EmailContent Confirm(Night night, string link, string stopLink)
+    {
+        var date = FormatDate(night.Date);
+        var guests = night.Participants.Count(participant => !participant.IsOrganizer);
+        var people = guests == 1 ? "1 other person" : $"{guests} other people";
+        var request = $"Somebody, hopefully you, used this address to plan a movie night for {date} with {people}.";
+        const string Nothing = "Nobody has been emailed yet. Confirm, and the invitations go out.";
+        const string NotYou = "If this wasn't you, ignore this email and nobody will be contacted.";
+
+        return new EmailContent
+        {
+            Subject = $"Confirm your movie night for {date}",
+            HtmlBody = Layout(
+                "Is this you?",
+                [Encode(request), Encode(Nothing), Encode(NotYou)],
+                "Confirm and send invitations",
+                link,
+                stopLink
+            ),
+            TextBody = $"{request}\n\n{Nothing}\n\nConfirm and send invitations: {link}\n\n{NotYou}\n"
+                + "Keep this email: its link is also how you get back to the night.\n"
+                + TextFooter(stopLink)
+        };
+    }
+
     public static EmailContent Suggest(Night night, string organizerEmail, string link, string stopLink)
     {
         var date = FormatDate(night.Date);

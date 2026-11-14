@@ -5,6 +5,15 @@
 /// </summary>
 public enum NightPhase
 {
+    /// <summary>
+    /// Waiting for the organizer to confirm, from the email sent to the address they typed, that
+    /// the address is theirs. Nobody else has been emailed.
+    /// </summary>
+    /// <remarks>
+    /// Stored by name, so adding this ahead of the others changes nothing already saved.
+    /// </remarks>
+    Pending,
+
     /// <summary>Participants are suggesting one movie each.</summary>
     Collecting,
 

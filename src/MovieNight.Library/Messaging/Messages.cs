@@ -28,7 +28,7 @@ public record CreateNightResponse
 {
     public required string NightId { get; init; }
 
-    /// <summary>Everyone emailed a link, the organizer included.</summary>
+    /// <summary>Everyone in the night, the organizer included. The guests are emailed once the organizer confirms.</summary>
     public required int InvitedCount { get; init; }
 
     /// <summary>Guests left out because they have asked never to be emailed.</summary>
@@ -127,6 +127,12 @@ public record NightView
     /// can decide whether to close it. Empty for everyone else.
     /// </summary>
     public required ImmutableList<string> WaitingOn { get; init; }
+
+    /// <summary>
+    /// For the organizer of a pending night only, the guests the invitations will go to when they
+    /// confirm. Empty otherwise.
+    /// </summary>
+    public required ImmutableList<string> Guests { get; init; }
 }
 
 public record MovieView
