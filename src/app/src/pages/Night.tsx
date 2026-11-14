@@ -266,16 +266,20 @@ function Results({ night }: { night: NightView }) {
     )
   }
 
-  const [winner] = night.results
-  const tied = night.results.length > 1 && night.results[1].points === winner.points
+  const [winner, runnerUp] = night.results
+  const tiedOnPoints = runnerUp !== undefined && runnerUp.points === winner.points
+  // BordaScorer breaks a full tie by movie id, and movie ids are random, so it's a coin flip.
+  const deadHeat = tiedOnPoints && runnerUp.firstPlaceVotes === winner.firstPlaceVotes
 
   return (
     <>
       <h1>You're watching {winner.title}</h1>
       <p>
-        {tied
-          ? `It was a tie on points. ${winner.title} had more first-place votes.`
-          : `It won with ${winner.points} points.`}
+        {deadHeat
+          ? `It was a dead heat, so ${winner.title} won a coin flip.`
+          : tiedOnPoints
+            ? `It was a tie on points. ${winner.title} had more first-place votes.`
+            : `It won with ${winner.points} points.`}
       </p>
       <ol className="results">
         {night.results.map((result) => (
