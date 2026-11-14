@@ -9,6 +9,7 @@ import {
   type MovieView,
   type NightView,
 } from '../api.ts'
+import { formatDate } from '../dates.ts'
 
 /**
  * The token from a link like /night/{nightId}#t={token}.
@@ -22,16 +23,6 @@ function readToken(): string {
 
 function messageOf(error: unknown): string {
   return error instanceof ApiError ? error.message : 'Something went wrong. Try again in a moment.'
-}
-
-/** "Saturday, November 14" from yyyy-MM-dd, read as a calendar date rather than a UTC instant. */
-function formatDate(date: string): string {
-  const [year, month, day] = date.split('-').map(Number)
-  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  })
 }
 
 /** Slow enough to stay far under the API's 5 requests a second with a full sofa of eight. */

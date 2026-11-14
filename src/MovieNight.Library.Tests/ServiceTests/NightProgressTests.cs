@@ -99,6 +99,45 @@ public class NightProgressTests
         NightProgress.IsCompleteRanking(night, "a", ranking).Should().Be(expected);
     }
 
+    [Theory]
+    [InlineData("The Princess Bride", "princess bride")]
+    [InlineData("The Princess Bride", "  the princess   bride! ")]
+    [InlineData("Spider-Man: Into the Spider-Verse", "spider man into the spider verse")]
+    [InlineData("WALL·E", "wall e")]
+    [InlineData("Amélie", "AMÉLIE")]
+    public void TitleKey_SameMovieTypedDifferently_IsTheSameKey(string first, string second) =>
+        NightProgress.TitleKey(first).Should().Be(NightProgress.TitleKey(second));
+
+    [Theory]
+    [InlineData("Alien", "Aliens")]
+    [InlineData("Toy Story", "Toy Story 2")]
+    public void TitleKey_DifferentMovies_AreDifferentKeys(string first, string second) =>
+        NightProgress.TitleKey(first).Should().NotBe(NightProgress.TitleKey(second));
+
+    [Fact]
+    public void TitleKey_TheArticleAlone_IsKept()
+    {
+        // "It" and "Us" are films; so, in principle, is "A". Never reduce a title to nothing.
+        NightProgress.TitleKey("A").Should().Be("a");
+        NightProgress.TitleKey("The").Should().Be("the");
+    }
+
+    [Fact]
+    public void IsTakenByAnother_SomebodyElsesTitle_IsTaken()
+    {
+        var night = Night(NightPhase.Collecting, Person("a", "The Princess Bride"), Person("b"));
+
+        NightProgress.IsTakenByAnother(night, "b", "princess bride").Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsTakenByAnother_TheirOwnEarlierTitle_IsNotTaken()
+    {
+        var night = Night(NightPhase.Collecting, Person("a", "The Princess Bride"), Person("b"));
+
+        NightProgress.IsTakenByAnother(night, "a", "The Princess Bride").Should().BeFalse();
+    }
+
     [Fact]
     public void Score_UsesTheStoredRankings()
     {

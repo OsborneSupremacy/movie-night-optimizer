@@ -94,6 +94,46 @@ internal static class NightProgress
                 .ToImmutableList()
         );
 
+    /// <summary>
+    /// Whether somebody else in the night has already suggested this movie.
+    /// </summary>
+    /// <remarks>
+    /// Turned away rather than merged. Two entries for one movie split its votes, and merging
+    /// them would leave the merged movie off two ballots instead of one, which a Borda count
+    /// can't compare fairly. Asking the second person for another pick keeps one movie per person.
+    ///
+    /// The participant's own earlier suggestion doesn't count, so they can resubmit it. Two people
+    /// sending the same new title at the same instant can both get through; that is rare enough,
+    /// and harmless enough, to accept.
+    /// </remarks>
+    public static bool IsTakenByAnother(Night night, string participantId, string suggestion)
+    {
+        var key = TitleKey(suggestion);
+
+        return key.Length > 0 && night.Participants
+            .Where(participant => participant.ParticipantId != participantId)
+            .Any(participant => TitleKey(participant.Suggestion) == key);
+    }
+
+    /// <summary>
+    /// A title reduced to what tells movies apart: letters and digits, lower-cased, without a
+    /// leading article. "The Princess Bride!" and "princess  bride" are the same movie.
+    /// </summary>
+    internal static string TitleKey(string title)
+    {
+        var words = new string(title
+                .ToLowerInvariant()
+                .Select(character => char.IsLetterOrDigit(character) ? character : ' ')
+                .ToArray())
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .ToImmutableList();
+
+        if(words.Count > 1 && words[0] is "the" or "a" or "an")
+            words = words.RemoveAt(0);
+
+        return string.Join(' ', words);
+    }
+
     /// <summary>The title of the movie a participant suggested, by its id.</summary>
     public static string TitleOf(Night night, string movieId) =>
         night.Participants

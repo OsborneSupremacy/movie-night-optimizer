@@ -1,5 +1,7 @@
 # Movie Night Optimizer
 
+[![CI](https://github.com/OsborneSupremacy/movie-night-optimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/OsborneSupremacy/movie-night-optimizer/actions/workflows/ci.yml)
+
 Picks the movie for a group that can't agree on one.
 
 An organizer enters everyone's email address and the date. Everyone is emailed a link to suggest

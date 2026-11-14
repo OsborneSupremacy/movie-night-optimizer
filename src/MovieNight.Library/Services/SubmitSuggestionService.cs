@@ -10,6 +10,8 @@ internal class SubmitSuggestionService : IApiGatewayHandler
 {
     internal const string ClosedMessage = "Suggestions for this movie night are closed.";
 
+    internal const string TakenMessage = "Great minds! Someone already suggested that one. Pick another?";
+
     private readonly ApiGatewayAdapter _adapter;
 
     private readonly NightReader _nightReader;
@@ -63,6 +65,9 @@ internal class SubmitSuggestionService : IApiGatewayHandler
 
         if(night.Phase != NightPhase.Collecting)
             return new Result<NightView>(new InvalidOperationException(ClosedMessage), HttpStatusCode.Conflict);
+
+        if(NightProgress.IsTakenByAnother(night, participant.ParticipantId, request.Suggestion))
+            return new Result<NightView>(new InvalidOperationException(TakenMessage), HttpStatusCode.Conflict);
 
         var saved = await _nightProvider
             .SaveSuggestionAsync(night.NightId, participant.ParticipantId, request.Suggestion)

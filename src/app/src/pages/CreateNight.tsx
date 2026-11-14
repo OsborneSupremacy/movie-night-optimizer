@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, createNight } from '../api.ts'
+import { formatDate } from '../dates.ts'
 
 /** Today in the browser's own time zone, as yyyy-MM-dd. toISOString would give the UTC date. */
 function today(): string {
@@ -46,8 +47,12 @@ export default function CreateNight() {
   if (status.kind === 'sent') {
     return (
       <section>
+        <p className="eyebrow">Movie night · {formatDate(date)}</p>
         <h1>Check your inbox</h1>
-        <p>Everyone has been emailed a link to suggest a movie, including you.</p>
+        <p>
+          All {parseEmails(participants).length + 1} of you, you included, have been emailed a link to suggest a
+          movie. When everyone has, you'll all get a link to rank them.
+        </p>
       </section>
     )
   }

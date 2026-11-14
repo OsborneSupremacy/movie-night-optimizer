@@ -151,6 +151,18 @@ public class NightServicesTests
     }
 
     [Fact]
+    public async Task SubmitSuggestion_SomebodyElsesMovie_Is409AndSavesNothing()
+    {
+        GivenTheNightReads(Night(NightPhase.Collecting, Person("a", "The Princess Bride"), Person("b")));
+
+        var result = await SubmitSuggestionService().ExecuteAsync(Suggestion("b", "princess bride"));
+
+        result.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        result.Exception.Message.Should().Be(MovieNight.Library.Services.SubmitSuggestionService.TakenMessage);
+        Transactions().Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task SubmitSuggestion_AfterCollectingClosed_Is409()
     {
         GivenTheNightReads(Night(NightPhase.Ranking, Person("a", "Alien"), Person("b", "Big")));
