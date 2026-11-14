@@ -56,6 +56,9 @@ public class NightViewBuilderTests
 
         view.ToRank.Single().Year.Should().Be("1979");
         view.ToRank.Single().PosterUrl.Should().Be("https://image.tmdb.org/t/p/w185/alien.jpg");
+        view.ToRank.Single().TmdbUrl.Should().Be("https://www.themoviedb.org/movie/348");
+        NightViewBuilder.Build(night, night.Participants[0]).YourTmdbUrl.Should().Be("https://www.themoviedb.org/movie/348");
+        view.YourTmdbUrl.Should().BeEmpty("TMDB didn't find the home videos");
         NightViewBuilder.Build(night, night.Participants[0]).ToRank.Single().PosterUrl.Should().BeEmpty();
     }
 

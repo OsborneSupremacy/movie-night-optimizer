@@ -181,6 +181,12 @@ internal static class NightProgress
         : minutes % 60 == 0 ? $"{minutes / 60}h"
         : $"{minutes / 60}h {minutes % 60}m";
 
+    /// <summary>The movie's page on TMDB, or empty when TMDB didn't find it.</summary>
+    public static string TmdbUrl(int tmdbId) =>
+        tmdbId > 0
+            ? $"https://www.themoviedb.org/movie/{tmdbId.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+            : string.Empty;
+
     /// <summary>
     /// The full address of a TMDB poster, or empty for none. <paramref name="width"/> is one of TMDB's
     /// sizes: "w92", "w154", "w185", "w342", "w500".

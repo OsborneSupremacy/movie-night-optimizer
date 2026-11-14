@@ -47,7 +47,7 @@ them.
 Each suggestion is looked up with [TMDB](https://www.themoviedb.org/), which gives it its proper
 title, year and poster: "princess bride" becomes *The Princess Bride* (1987). A second request
 fetches what helps people rank a movie they haven't seen: its US rating, runtime, genres, where it
-streams in the US (from JustWatch) and a trailer. TMDB is an enhancement, never a dependency. If it
+streams in the US (from JustWatch), a trailer, and a link to its TMDB page. TMDB is an enhancement, never a dependency. If it
 is down, slow, rate limiting or finds nothing, the suggestion is saved exactly as typed, and if
 only the details fail, the title, year and poster are kept. Both requests together get 1.5 seconds.
 

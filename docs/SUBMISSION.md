@@ -11,7 +11,7 @@ Every family movie night starts with the same twenty minutes: someone suggests a
 The organizer enters everyone's email address and the date, then confirms their own address from the email that arrives. That's the only setup: no accounts, no app to install.
 
 1. **Everyone suggests one movie.** Each person gets an email with their own link and suggests a movie on a simple page. Each suggestion is looked up on TMDB, so "princess bride" comes back as *The Princess Bride* (1987), with its poster. Nobody sees the others' picks until they've made their own, so nobody anchors on the first suggestion.
-2. **Everyone ranks the others.** When the last suggestion is in, everyone gets a second email and puts the other suggestions in order, best first. Each card shows what helps you rank a movie you haven't seen: its rating, runtime, genres, where it streams and a trailer link. Nobody ranks their own movie, so nobody can vote it to the top.
+2. **Everyone ranks the others.** When the last suggestion is in, everyone gets a second email and puts the other suggestions in order, best first. Each card shows what helps you rank a movie you haven't seen: its rating, runtime, genres, where it streams, and links to its trailer and its TMDB page. Nobody ranks their own movie, so nobody can vote it to the top.
 3. **The results arrive.** When the last ranking is in, the rankings are scored with a Borda count and everyone is emailed the winner, how long it is, where to stream it, and the full order. Ties go to the movie more people ranked first.
 
 If someone never answers, the organizer can close the round and move on, so one person can't stall the night.

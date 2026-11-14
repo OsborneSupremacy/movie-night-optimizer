@@ -185,7 +185,7 @@ function Collecting({ night, token, onChange }: PhaseProps) {
           <Poster url={night.yourPosterUrl} title={night.yourSuggestion} size="large" />
           <div>
             {night.yourYear && <p className="year">{night.yourYear}</p>}
-            <Facts details={night.yourDetails} />
+            <Facts details={night.yourDetails} tmdbUrl={night.yourTmdbUrl} />
             <p>When everyone has suggested a movie, you'll get an email to rank the others' picks.</p>
             {found && <p className="hint">Not the one you meant? Change it, and add the year.</p>}
           </div>
@@ -289,7 +289,7 @@ function Ranking({ night, token, onChange }: PhaseProps) {
             <span className="rank-title">
               {movie.title}
               {movie.year && <span className="year"> {movie.year}</span>}
-              <Facts details={movie.details} />
+              <Facts details={movie.details} tmdbUrl={movie.tmdbUrl} />
             </span>
             <span className="rank-buttons">
               <button
@@ -347,7 +347,7 @@ function Results({ night }: { night: NightView }) {
     <>
       <h1>You're watching {winnerTitle}</h1>
       {winner.posterUrl && <Poster url={winner.posterUrl} title={winner.title} size="large" />}
-      <Facts details={winner.details} />
+      <Facts details={winner.details} tmdbUrl={winner.tmdbUrl} />
       <p>
         {deadHeat
           ? `It was a dead heat, so ${winner.title} won a coin flip.`
@@ -443,10 +443,10 @@ function runtime(minutes: number): string {
 }
 
 /**
- * A movie's rating, runtime and genres on one line, and where it streams with its trailer on the
- * next, leaving out whatever TMDB didn't know. Nothing at all when it knew nothing.
+ * A movie's rating, runtime and genres, where it streams, and links to its trailer and TMDB page,
+ * a line each, leaving out whatever TMDB didn't know. Nothing at all when it knew nothing.
  */
-function Facts({ details }: { details: MovieDetails }) {
+function Facts({ details, tmdbUrl }: { details: MovieDetails; tmdbUrl: string }) {
   const facts = [
     details.certification ? `Rated ${details.certification}` : '',
     runtime(details.runtimeMinutes),
@@ -455,26 +455,33 @@ function Facts({ details }: { details: MovieDetails }) {
 
   const streaming = details.streamingOn.join(', ')
 
-  if (facts.length === 0 && !streaming && !details.trailerUrl) return null
+  const links = [
+    { label: 'Trailer', url: details.trailerUrl },
+    { label: 'TMDB', url: tmdbUrl },
+  ].filter((link) => link.url !== '')
+
+  if (facts.length === 0 && !streaming && links.length === 0) return null
 
   return (
     <span className="facts">
       {facts.length > 0 && <span className="facts-line">{facts.join(' · ')}</span>}
-      {(streaming || details.trailerUrl) && (
+      {streaming && <span className="facts-line">On {streaming}</span>}
+      {links.length > 0 && (
         <span className="facts-line">
-          {streaming && <>On {streaming}</>}
-          {streaming && details.trailerUrl && ' · '}
-          {details.trailerUrl && (
-            <a
-              href={details.trailerUrl}
-              target="_blank"
-              rel="noreferrer"
-              draggable={false}
-              onClick={(event) => event.stopPropagation()}
-            >
-              Trailer ↗
-            </a>
-          )}
+          {links.map((link, index) => (
+            <span key={link.label}>
+              {index > 0 && ' · '}
+              <a
+                href={link.url}
+                target="_blank"
+                rel="noreferrer"
+                draggable={false}
+                onClick={(event) => event.stopPropagation()}
+              >
+                {link.label} ↗
+              </a>
+            </span>
+          ))}
         </span>
       )}
     </span>

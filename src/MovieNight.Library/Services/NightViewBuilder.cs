@@ -23,6 +23,7 @@ internal static class NightViewBuilder
             YourYear = viewer.MovieYear,
             YourPosterUrl = NightProgress.PosterUrl(viewer.PosterPath, PosterWidth),
             YourDetails = viewer.Details,
+            YourTmdbUrl = NightProgress.TmdbUrl(viewer.TmdbId),
             HasAnswered = NightProgress.HasAnswered(night, viewer),
             ParticipantCount = night.Participants.Count,
             AnsweredCount = night.Participants.Count(participant => NightProgress.HasAnswered(night, participant)),
@@ -34,7 +35,8 @@ internal static class NightViewBuilder
                         Title = movie.Suggestion,
                         Year = movie.MovieYear,
                         PosterUrl = NightProgress.PosterUrl(movie.PosterPath, PosterWidth),
-                        Details = movie.Details
+                        Details = movie.Details,
+                        TmdbUrl = NightProgress.TmdbUrl(movie.TmdbId)
                     })
                     .ToImmutableList()
                 : [],
@@ -48,6 +50,7 @@ internal static class NightViewBuilder
                         Year = scored.movie.MovieYear,
                         PosterUrl = NightProgress.PosterUrl(scored.movie.PosterPath, PosterWidth),
                         Details = scored.movie.Details,
+                        TmdbUrl = NightProgress.TmdbUrl(scored.movie.TmdbId),
                         Points = scored.score.Points,
                         FirstPlaceVotes = scored.score.FirstPlaceVotes,
                         IsYours = scored.score.MovieId == viewer.ParticipantId

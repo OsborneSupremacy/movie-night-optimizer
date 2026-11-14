@@ -62,13 +62,15 @@ public class NightEmailsTests
     {
         var details = MovieDetails.Empty with { Certification = "PG", RuntimeMinutes = 104, StreamingOn = ["HBO Max", "Netflix"] };
         var night = Night(NightPhase.Done,
-            Person("a", "Paddington 2", false, "b") with { MovieYear = "2017", Details = details },
+            Person("a", "Paddington 2", false, "b") with { TmdbId = 346648, MovieYear = "2017", Details = details },
             Person("b", "Big", false, "a"),
             Person("c", "", false, "a", "b"));
 
         var email = NightEmails.Results(night, Link, StopLink);
 
         email.TextBody.Should().Contain("Rated PG · 1h 44m").And.Contain("Streaming on HBO Max, Netflix.").And.Contain("JustWatch");
+        email.TextBody.Should().Contain("More about it on TMDB: https://www.themoviedb.org/movie/346648");
+        email.HtmlBody.Should().Contain("href=\"https://www.themoviedb.org/movie/346648\"");
         email.HtmlBody.Should().Contain("Streaming on HBO Max, Netflix.").And.Contain("JustWatch");
     }
 
@@ -79,7 +81,7 @@ public class NightEmailsTests
 
         var email = NightEmails.Results(night, Link, StopLink);
 
-        email.TextBody.Should().NotContain("Streaming on").And.NotContain("Rated").And.NotContain("JustWatch");
+        email.TextBody.Should().NotContain("Streaming on").And.NotContain("Rated").And.NotContain("JustWatch").And.NotContain("TMDB");
     }
 
     [Fact]

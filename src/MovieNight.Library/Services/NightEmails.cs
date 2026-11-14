@@ -156,8 +156,15 @@ internal static class NightEmails
                     + " <span style=\"font-size:12px;color:#6b6478;\">(availability from JustWatch)</span></p>"
                 : string.Empty);
 
+        var tmdbUrl = NightProgress.TmdbUrl(winningMovie.TmdbId);
+        var tmdbHtml = tmdbUrl.Length > 0
+            ? $"<p style=\"font-size:15px;margin:0 0 16px;\"><a href=\"{Encode(tmdbUrl)}\" style=\"color:#8a6d00;\">"
+                + $"More about {Encode(winner)} on TMDB</a></p>"
+            : string.Empty;
+
         var list = poster
             + factsHtml
+            + tmdbHtml
             + "<ol style=\"padding-left:1.25rem;margin:0 0 1rem;\">"
             + string.Concat(scores.Select(score =>
                 $"<li style=\"margin:0 0 .25rem;\">{Encode(NightProgress.DisplayTitle(NightProgress.SuggesterOf(night, score.MovieId)))}"
@@ -178,6 +185,7 @@ internal static class NightEmails
             TextBody = $"{headline}\n"
                 + (facts.Length > 0 ? $"{facts}\n" : string.Empty)
                 + (streaming.Length > 0 ? $"{streaming} (Availability from JustWatch.)\n" : string.Empty)
+                + (tmdbUrl.Length > 0 ? $"More about it on TMDB: {tmdbUrl}\n" : string.Empty)
                 + $"\nEveryone's rankings are in for {date}. Here's how the movies finished:\n\n"
                 + string.Join("\n", lines)
                 + $"\n\nSee the results: {link}\n"

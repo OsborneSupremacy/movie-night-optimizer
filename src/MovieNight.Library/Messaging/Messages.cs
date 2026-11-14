@@ -102,6 +102,9 @@ public record NightView
     /// <summary>The rating, runtime and so on of this participant's movie, as far as TMDB knew them.</summary>
     public required MovieDetails YourDetails { get; init; }
 
+    /// <summary>This participant's movie's page on TMDB, or empty.</summary>
+    public required string YourTmdbUrl { get; init; }
+
     /// <summary>
     /// Whether this participant has answered the current round. Somebody with nothing to rank
     /// counts as having ranked.
@@ -149,6 +152,9 @@ public record MovieView
 
     /// <summary>The rating, runtime, genres, streaming services and trailer, as far as TMDB knew them.</summary>
     public required MovieDetails Details { get; init; }
+
+    /// <summary>The movie's page on TMDB, or empty when TMDB didn't find it.</summary>
+    public required string TmdbUrl { get; init; }
 }
 
 public record ResultView
@@ -165,6 +171,9 @@ public record ResultView
 
     /// <summary>The rating, runtime, genres, streaming services and trailer, as far as TMDB knew them.</summary>
     public required MovieDetails Details { get; init; }
+
+    /// <summary>The movie's page on TMDB, or empty when TMDB didn't find it.</summary>
+    public required string TmdbUrl { get; init; }
 
     public required int Points { get; init; }
 

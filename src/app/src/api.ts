@@ -84,6 +84,8 @@ export interface MovieView {
   /** A small TMDB poster, or empty. */
   posterUrl: string
   details: MovieDetails
+  /** The movie's page on TMDB, or empty when TMDB didn't find it. */
+  tmdbUrl: string
 }
 
 export interface ResultView {
@@ -92,6 +94,8 @@ export interface ResultView {
   year: string
   posterUrl: string
   details: MovieDetails
+  /** The movie's page on TMDB, or empty when TMDB didn't find it. */
+  tmdbUrl: string
   points: number
   firstPlaceVotes: number
   isYours: boolean
@@ -109,6 +113,7 @@ export interface NightView {
   yourYear: string
   yourPosterUrl: string
   yourDetails: MovieDetails
+  yourTmdbUrl: string
   /** Whether this participant has answered the current round. */
   hasAnswered: boolean
   participantCount: number
