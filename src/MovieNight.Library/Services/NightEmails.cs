@@ -111,7 +111,20 @@ internal static class NightEmails
                 + " width=\"160\" style=\"display:block;width:160px;height:auto;border-radius:8px;\"></p>"
             : string.Empty;
 
+        // What the family needs to know to start the movie: how long it is, and where to watch it.
+        var facts = NightProgress.DetailsLine(winningMovie.Details);
+        var streaming = winningMovie.Details.StreamingOn.Count > 0
+            ? $"Streaming on {string.Join(", ", winningMovie.Details.StreamingOn)}."
+            : string.Empty;
+
+        var factsHtml = (facts.Length > 0 ? $"<p style=\"font-size:15px;color:#4a4458;margin:0 0 6px;\">{Encode(facts)}</p>" : string.Empty)
+            + (streaming.Length > 0
+                ? $"<p style=\"font-size:15px;color:#4a4458;margin:0 0 16px;\">{Encode(streaming)}"
+                    + " <span style=\"font-size:12px;color:#6b6478;\">(availability from JustWatch)</span></p>"
+                : string.Empty);
+
         var list = poster
+            + factsHtml
             + "<ol style=\"padding-left:1.25rem;margin:0 0 1rem;\">"
             + string.Concat(scores.Select(score =>
                 $"<li style=\"margin:0 0 .25rem;\">{Encode(NightProgress.DisplayTitle(NightProgress.SuggesterOf(night, score.MovieId)))}"
@@ -129,7 +142,10 @@ internal static class NightEmails
                 stopLink,
                 list
             ),
-            TextBody = $"{headline}\n\nEveryone's rankings are in for {date}. Here's how the movies finished:\n\n"
+            TextBody = $"{headline}\n"
+                + (facts.Length > 0 ? $"{facts}\n" : string.Empty)
+                + (streaming.Length > 0 ? $"{streaming} (Availability from JustWatch.)\n" : string.Empty)
+                + $"\nEveryone's rankings are in for {date}. Here's how the movies finished:\n\n"
                 + string.Join("\n", lines)
                 + $"\n\nSee the results: {link}\n"
                 + TextFooter(stopLink)

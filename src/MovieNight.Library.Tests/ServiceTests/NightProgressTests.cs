@@ -148,6 +148,23 @@ public class NightProgressTests
         NightProgress.IsTakenByAnother(night, "a", "The Princess Bride").Should().BeFalse();
     }
 
+    [Theory]
+    [InlineData(0, "")]
+    [InlineData(45, "45m")]
+    [InlineData(60, "1h")]
+    [InlineData(104, "1h 44m")]
+    public void Runtime_ReadsLikeAPerson(int minutes, string expected) =>
+        NightProgress.Runtime(minutes).Should().Be(expected);
+
+    [Fact]
+    public void DetailsLine_LeavesOutWhatIsntKnown()
+    {
+        NightProgress.DetailsLine(MovieDetails.Empty with { Certification = "PG", RuntimeMinutes = 104, Genres = ["Adventure", "Family"] })
+            .Should().Be("Rated PG · 1h 44m · Adventure, Family");
+        NightProgress.DetailsLine(MovieDetails.Empty with { RuntimeMinutes = 90 }).Should().Be("1h 30m");
+        NightProgress.DetailsLine(MovieDetails.Empty).Should().BeEmpty();
+    }
+
     [Fact]
     public void Score_UsesTheStoredRankings()
     {

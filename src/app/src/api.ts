@@ -64,6 +64,18 @@ export const createNight = (body: CreateNightRequest) =>
 
 export type NightPhase = 'collecting' | 'ranking' | 'done'
 
+/** What helps people rank a movie they don't know. Any part can be empty. Mirrors MovieDetails. */
+export interface MovieDetails {
+  /** The US rating, like "PG-13". */
+  certification: string
+  /** 0 when unknown. */
+  runtimeMinutes: number
+  genres: string[]
+  /** US subscription or free services, from JustWatch by way of TMDB. */
+  streamingOn: string[]
+  trailerUrl: string
+}
+
 export interface MovieView {
   movieId: string
   title: string
@@ -71,6 +83,7 @@ export interface MovieView {
   year: string
   /** A small TMDB poster, or empty. */
   posterUrl: string
+  details: MovieDetails
 }
 
 export interface ResultView {
@@ -78,6 +91,7 @@ export interface ResultView {
   title: string
   year: string
   posterUrl: string
+  details: MovieDetails
   points: number
   firstPlaceVotes: number
   isYours: boolean
@@ -94,6 +108,7 @@ export interface NightView {
   yourSuggestion: string
   yourYear: string
   yourPosterUrl: string
+  yourDetails: MovieDetails
   /** Whether this participant has answered the current round. */
   hasAnswered: boolean
   participantCount: number

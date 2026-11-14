@@ -6,6 +6,7 @@ import {
   getNight,
   submitRanking,
   submitSuggestion,
+  type MovieDetails,
   type MovieView,
   type NightView,
 } from '../api.ts'
@@ -128,6 +129,7 @@ function Collecting({ night, token, onChange }: PhaseProps) {
           <Poster url={night.yourPosterUrl} title={night.yourSuggestion} size="large" />
           <div>
             {night.yourYear && <p className="year">{night.yourYear}</p>}
+            <Facts details={night.yourDetails} />
             <p>When everyone has suggested a movie, you'll get an email to rank the others' picks.</p>
             {found && <p className="hint">Not the one you meant? Change it, and add the year.</p>}
           </div>
@@ -231,6 +233,7 @@ function Ranking({ night, token, onChange }: PhaseProps) {
             <span className="rank-title">
               {movie.title}
               {movie.year && <span className="year"> {movie.year}</span>}
+              <Facts details={movie.details} />
             </span>
             <span className="rank-buttons">
               <button
@@ -288,6 +291,7 @@ function Results({ night }: { night: NightView }) {
     <>
       <h1>You're watching {winnerTitle}</h1>
       {winner.posterUrl && <Poster url={winner.posterUrl} title={winner.title} size="large" />}
+      <Facts details={winner.details} />
       <p>
         {deadHeat
           ? `It was a dead heat, so ${winner.title} won a coin flip.`
@@ -371,6 +375,52 @@ function Poster({ url, title, size = 'small' }: { url: string; title: string; si
   ) : (
     <span className={`${className} poster-missing`} aria-hidden="true">
       🎬
+    </span>
+  )
+}
+
+/** "1h 44m", "45m", or empty for unknown. */
+function runtime(minutes: number): string {
+  if (minutes <= 0) return ''
+  if (minutes < 60) return `${minutes}m`
+  return minutes % 60 === 0 ? `${minutes / 60}h` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`
+}
+
+/**
+ * A movie's rating, runtime and genres on one line, and where it streams with its trailer on the
+ * next, leaving out whatever TMDB didn't know. Nothing at all when it knew nothing.
+ */
+function Facts({ details }: { details: MovieDetails }) {
+  const facts = [
+    details.certification ? `Rated ${details.certification}` : '',
+    runtime(details.runtimeMinutes),
+    details.genres.join(', '),
+  ].filter((part) => part !== '')
+
+  const streaming = details.streamingOn.join(', ')
+
+  if (facts.length === 0 && !streaming && !details.trailerUrl) return null
+
+  return (
+    <span className="facts">
+      {facts.length > 0 && <span className="facts-line">{facts.join(' · ')}</span>}
+      {(streaming || details.trailerUrl) && (
+        <span className="facts-line">
+          {streaming && <>On {streaming}</>}
+          {streaming && details.trailerUrl && ' · '}
+          {details.trailerUrl && (
+            <a
+              href={details.trailerUrl}
+              target="_blank"
+              rel="noreferrer"
+              draggable={false}
+              onClick={(event) => event.stopPropagation()}
+            >
+              Trailer ↗
+            </a>
+          )}
+        </span>
+      )}
     </span>
   )
 }

@@ -54,6 +54,9 @@ public record Participant
     /// <summary>TMDB's poster path for their movie, or empty.</summary>
     public string PosterPath { get; init; } = string.Empty;
 
+    /// <summary>Their movie's rating, runtime, genres, streaming services and trailer, as far as TMDB knew them.</summary>
+    public MovieDetails Details { get; init; } = MovieDetails.Empty;
+
     /// <summary>
     /// The participant ids whose suggestions they ranked, best first. Empty until they have.
     /// A movie is identified by the participant who suggested it.

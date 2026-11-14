@@ -39,10 +39,12 @@ public class NightProviderTests
 
         var update = CapturedTransaction().TransactItems[1].Update;
 
-        update.UpdateExpression.Should().Be("SET Suggestion = :title, TmdbId = :tmdbId, MovieYear = :year, PosterPath = :poster");
+        update.UpdateExpression.Should().StartWith("SET Suggestion = :title, TmdbId = :tmdbId, MovieYear = :year, PosterPath = :poster, ");
         update.ExpressionAttributeValues[":tmdbId"].N.Should().Be("0");
         update.ExpressionAttributeValues[":year"].S.Should().BeEmpty();
         update.ExpressionAttributeValues[":poster"].S.Should().BeEmpty();
+        update.ExpressionAttributeValues[":streaming"].S.Should().BeEmpty();
+        update.ExpressionAttributeValues[":runtime"].N.Should().Be("0");
     }
 
     [Fact]
@@ -175,7 +177,15 @@ public class NightProviderTests
     public async Task TryGetNightAsync_ReadsBackWhatIsStored()
     {
         var stored = Night(NightPhase.Ranking,
-            Person("a", "Alien", isOrganizer: true) with { TmdbId = 348, MovieYear = "1979", PosterPath = "/alien.jpg" },
+            Person("a", "Alien", isOrganizer: true) with
+            {
+                TmdbId = 348, MovieYear = "1979", PosterPath = "/alien.jpg",
+                Details = new MovieDetails
+                {
+                    Certification = "R", RuntimeMinutes = 117, Genres = ["Horror", "Science Fiction"],
+                    StreamingOn = ["Hulu"], TrailerUrl = "https://www.youtube.com/watch?v=x"
+                }
+            },
             Person("b", "Big", false, "a"));
 
         _dynamoDb.QueryAsync(Arg.Any<QueryRequest>(), Arg.Any<CancellationToken>())

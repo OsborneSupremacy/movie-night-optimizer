@@ -292,3 +292,29 @@ button.icon:disabled {
 .credits a {
   color: var(--muted);
 }
+
+.facts {
+  display: block;
+  margin-top: 0.15rem;
+}
+
+.facts-line {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.facts a {
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.your-pick .facts,
+.results-facts .facts {
+  margin-bottom: 1rem;
+}
+
+.your-pick .facts-line {
+  font-size: 0.9rem;
+}

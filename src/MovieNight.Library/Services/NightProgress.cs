@@ -152,6 +152,26 @@ internal static class NightProgress
             : suggester.Suggestion;
 
     /// <summary>
+    /// A movie's facts on one line for people to read, like "Rated PG · 1h 44m · Adventure, Comedy",
+    /// leaving out whatever isn't known. Empty when nothing is.
+    /// </summary>
+    public static string DetailsLine(MovieDetails details) =>
+        string.Join(" · ", new[]
+            {
+                details.Certification.Length > 0 ? $"Rated {details.Certification}" : string.Empty,
+                Runtime(details.RuntimeMinutes),
+                string.Join(", ", details.Genres)
+            }
+            .Where(part => part.Length > 0));
+
+    /// <summary>"1h 44m", "45m", or empty for unknown.</summary>
+    public static string Runtime(int minutes) =>
+        minutes <= 0 ? string.Empty
+        : minutes < 60 ? $"{minutes}m"
+        : minutes % 60 == 0 ? $"{minutes / 60}h"
+        : $"{minutes / 60}h {minutes % 60}m";
+
+    /// <summary>
     /// The full address of a TMDB poster, or empty for none. <paramref name="width"/> is one of TMDB's
     /// sizes: "w92", "w154", "w185", "w342", "w500".
     /// </summary>

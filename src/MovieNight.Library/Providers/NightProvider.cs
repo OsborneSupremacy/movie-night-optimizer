@@ -42,6 +42,9 @@ internal class NightProvider
 
     private const string DateFormat = "yyyy-MM-dd";
 
+    /// <summary>Between the items of a list stored as a string. Never in a genre or a service's name.</summary>
+    private const string ListSeparator = "|";
+
     /// <summary>How long a night is kept. DynamoDB's TTL removes it some time after this.</summary>
     private static readonly TimeSpan Retention = TimeSpan.FromDays(30);
 
@@ -198,12 +201,17 @@ internal class NightProvider
                 IsOrganizer = item.TryGetValue("IsOrganizer", out var isOrganizer) && isOrganizer.BOOL == true,
                 OptedOut = item.TryGetValue("OptedOut", out var optedOut) && optedOut.BOOL == true,
                 Suggestion = GetString(item, "Suggestion"),
-                TmdbId = item.TryGetValue("TmdbId", out var tmdbId)
-                    && int.TryParse(tmdbId.N, NumberStyles.None, CultureInfo.InvariantCulture, out var id)
-                        ? id
-                        : 0,
+                TmdbId = GetInt(item, "TmdbId"),
                 MovieYear = GetString(item, "MovieYear"),
                 PosterPath = GetString(item, "PosterPath"),
+                Details = new MovieDetails
+                {
+                    Certification = GetString(item, "Certification"),
+                    RuntimeMinutes = GetInt(item, "RuntimeMinutes"),
+                    Genres = GetList(item, "Genres"),
+                    StreamingOn = GetList(item, "StreamingOn"),
+                    TrailerUrl = GetString(item, "TrailerUrl")
+                },
                 Ranking = item.TryGetValue("Ranking", out var ranking) && ranking.L is not null
                     ? ranking.L.Select(value => value.S ?? string.Empty).ToImmutableList()
                     : []
@@ -256,20 +264,28 @@ internal class NightProvider
     /// </summary>
     /// <remarks>
     /// Every field is written every time, empty or not, so a new suggestion TMDB couldn't find
-    /// doesn't keep the poster of the one it replaced.
+    /// doesn't keep the poster of the one it replaced. The lists are stored as delimited strings,
+    /// which, unlike DynamoDB's own lists and sets, can be empty.
     /// </remarks>
     public Task<bool> SaveSuggestionAsync(string nightId, string participantId, string title, MovieMatch match) =>
         UpdateParticipantInPhaseAsync(
             nightId,
             participantId,
             NightPhase.Collecting,
-            "SET Suggestion = :title, TmdbId = :tmdbId, MovieYear = :year, PosterPath = :poster",
+            "SET Suggestion = :title, TmdbId = :tmdbId, MovieYear = :year, PosterPath = :poster, "
+                + "Certification = :certification, RuntimeMinutes = :runtime, Genres = :genres, "
+                + "StreamingOn = :streaming, TrailerUrl = :trailer",
             new Dictionary<string, AttributeValue>
             {
                 [":title"] = new() { S = title },
                 [":tmdbId"] = new() { N = match.TmdbId.ToString(CultureInfo.InvariantCulture) },
                 [":year"] = new() { S = match.Year },
-                [":poster"] = new() { S = match.PosterPath }
+                [":poster"] = new() { S = match.PosterPath },
+                [":certification"] = new() { S = match.Details.Certification },
+                [":runtime"] = new() { N = match.Details.RuntimeMinutes.ToString(CultureInfo.InvariantCulture) },
+                [":genres"] = new() { S = string.Join(ListSeparator, match.Details.Genres) },
+                [":streaming"] = new() { S = string.Join(ListSeparator, match.Details.StreamingOn) },
+                [":trailer"] = new() { S = match.Details.TrailerUrl }
             }
         );
 
@@ -435,6 +451,17 @@ internal class NightProvider
         };
 
     private static string BuildPartitionKey(string nightId) => $"NIGHT#{nightId}";
+
+    private static int GetInt(Dictionary<string, AttributeValue> item, string key) =>
+        item.TryGetValue(key, out var value)
+        && int.TryParse(value.N, NumberStyles.None, CultureInfo.InvariantCulture, out var number)
+            ? number
+            : 0;
+
+    private static ImmutableList<string> GetList(Dictionary<string, AttributeValue> item, string key) =>
+        GetString(item, key)
+            .Split(ListSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToImmutableList();
 
     private static string GetString(Dictionary<string, AttributeValue> item, string key) =>
         item.TryGetValue(key, out var value) ? value.S ?? string.Empty : string.Empty;

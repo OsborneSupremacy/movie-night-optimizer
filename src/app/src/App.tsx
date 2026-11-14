@@ -22,7 +22,11 @@ export default function App() {
         <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">
           TMDB
         </a>
-        . This product uses the TMDB API but is not endorsed or certified by TMDB.
+        . This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming availability from{' '}
+        <a href="https://www.justwatch.com/" target="_blank" rel="noreferrer">
+          JustWatch
+        </a>
+        .
       </footer>
     </div>
   )

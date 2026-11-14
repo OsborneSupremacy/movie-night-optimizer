@@ -99,6 +99,9 @@ public record NightView
     /// <summary>The poster of this participant's movie, or empty.</summary>
     public required string YourPosterUrl { get; init; }
 
+    /// <summary>The rating, runtime and so on of this participant's movie, as far as TMDB knew them.</summary>
+    public required MovieDetails YourDetails { get; init; }
+
     /// <summary>
     /// Whether this participant has answered the current round. Somebody with nothing to rank
     /// counts as having ranked.
@@ -137,6 +140,9 @@ public record MovieView
 
     /// <summary>A small poster from TMDB, or empty.</summary>
     public required string PosterUrl { get; init; }
+
+    /// <summary>The rating, runtime, genres, streaming services and trailer, as far as TMDB knew them.</summary>
+    public required MovieDetails Details { get; init; }
 }
 
 public record ResultView
@@ -150,6 +156,9 @@ public record ResultView
 
     /// <summary>A small poster from TMDB, or empty.</summary>
     public required string PosterUrl { get; init; }
+
+    /// <summary>The rating, runtime, genres, streaming services and trailer, as far as TMDB knew them.</summary>
+    public required MovieDetails Details { get; init; }
 
     public required int Points { get; init; }
 

@@ -61,9 +61,12 @@ internal partial class TmdbMovieLookup : IMovieLookup
                 ? await SearchAsync(token, title, year, budget.Token).ConfigureAwait(false)
                 : MovieMatch.None;
 
+            if(!match.IsFound)
+                match = await SearchAsync(token, typed, string.Empty, budget.Token).ConfigureAwait(false);
+
             return match.IsFound
-                ? match
-                : await SearchAsync(token, typed, string.Empty, budget.Token).ConfigureAwait(false);
+                ? match with { Details = await TryGetDetailsAsync(token, match.TmdbId, budget.Token).ConfigureAwait(false) }
+                : match;
         }
         catch (Exception exception)
         {
@@ -98,6 +101,146 @@ internal partial class TmdbMovieLookup : IMovieLookup
 
         return Choose(query, page?.Results ?? []);
     }
+
+    /// <summary>
+    /// The rating, runtime, genres, streaming services and trailer, in one request. Anything going
+    /// wrong here keeps the match TMDB's search already found and leaves the details out.
+    /// </summary>
+    private async Task<MovieDetails> TryGetDetailsAsync(string token, int tmdbId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get,
+                $"movie/{tmdbId}?append_to_response=release_dates,watch/providers,videos&language=en-US");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+            if(!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("TMDB details answered {StatusCode}; keeping the match without them", (int)response.StatusCode);
+                return MovieDetails.Empty;
+            }
+
+            return ParseDetails(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "TMDB details failed; keeping the match without them");
+            return MovieDetails.Empty;
+        }
+    }
+
+    /// <summary>
+    /// The details from TMDB's movie response, reading each part on its own so that one missing or
+    /// malformed part leaves only itself out.
+    /// </summary>
+    internal static MovieDetails ParseDetails(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+
+        return new MovieDetails
+        {
+            Certification = Read(() => UsCertification(root), string.Empty),
+            RuntimeMinutes = Read(() => root.TryGetProperty("runtime", out var runtime) && runtime.ValueKind == JsonValueKind.Number
+                ? Math.Max(runtime.GetInt32(), 0)
+                : 0, 0),
+            Genres = Read(() => Strings(root, "genres", "name").Take(3).ToImmutableList(), []),
+            StreamingOn = Read(() => UsStreaming(root), []),
+            TrailerUrl = Read(() => Trailer(root), string.Empty)
+        };
+    }
+
+    private static T Read<T>(Func<T> read, T fallback)
+    {
+        try
+        {
+            return read();
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or KeyNotFoundException or FormatException)
+        {
+            return fallback;
+        }
+    }
+
+    /// <summary>
+    /// The US rating. The theatrical release's when it has one (type 3), otherwise any US release's,
+    /// since a movie that went straight to streaming is rated there.
+    /// </summary>
+    private static string UsCertification(JsonElement root)
+    {
+        var us = Array(root.GetProperty("release_dates"), "results")
+            .Where(country => Text(country, "iso_3166_1") == "US")
+            .SelectMany(country => Array(country, "release_dates"))
+            .Where(release => Text(release, "certification").Trim().Length > 0)
+            .ToImmutableList();
+
+        var theatrical = us.FirstOrDefault(release =>
+            release.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.Number && type.GetInt32() == 3);
+
+        return theatrical.ValueKind == JsonValueKind.Object
+            ? Text(theatrical, "certification").Trim()
+            : us.Select(release => Text(release, "certification").Trim()).FirstOrDefault() ?? string.Empty;
+    }
+
+    /// <summary>
+    /// US subscription and free services, in TMDB's display order, without the add-on channel
+    /// variants that repeat a service ("HBO Max Amazon Channel" is HBO Max).
+    /// </summary>
+    private static ImmutableList<string> UsStreaming(JsonElement root)
+    {
+        if(!root.GetProperty("watch/providers").GetProperty("results").TryGetProperty("US", out var us))
+            return [];
+
+        return new[] { "flatrate", "free", "ads" }
+            .SelectMany(kind => Array(us, kind))
+            .OrderBy(provider => provider.TryGetProperty("display_priority", out var priority)
+                && priority.ValueKind == JsonValueKind.Number ? priority.GetInt32() : int.MaxValue)
+            .Select(provider => ServiceName(Text(provider, "provider_name")))
+            .Where(name => name.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .ToImmutableList();
+    }
+
+    /// <summary>"HBO Max Amazon Channel" to "HBO Max", "Netflix Standard with Ads" to "Netflix".</summary>
+    internal static string ServiceName(string providerName) =>
+        ChannelOrPlanSuffix().Replace(providerName.Trim(), string.Empty).Trim();
+
+    /// <summary>An official YouTube trailer if there is one, otherwise any YouTube trailer.</summary>
+    private static string Trailer(JsonElement root)
+    {
+        var trailers = Array(root.GetProperty("videos"), "results")
+            .Where(video => Text(video, "site") == "YouTube" && Text(video, "type") == "Trailer" && Text(video, "key").Length > 0)
+            .ToImmutableList();
+
+        var chosen = trailers.FirstOrDefault(video =>
+            video.TryGetProperty("official", out var official) && official.ValueKind == JsonValueKind.True);
+
+        if(chosen.ValueKind != JsonValueKind.Object)
+            chosen = trailers.FirstOrDefault();
+
+        return chosen.ValueKind == JsonValueKind.Object
+            ? $"https://www.youtube.com/watch?v={Uri.EscapeDataString(Text(chosen, "key"))}"
+            : string.Empty;
+    }
+
+    private static IEnumerable<JsonElement> Array(JsonElement parent, string name) =>
+        parent.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Array
+            ? value.EnumerateArray()
+            : [];
+
+    private static IEnumerable<string> Strings(JsonElement parent, string arrayName, string propertyName) =>
+        Array(parent, arrayName)
+            .Select(item => Text(item, propertyName).Trim())
+            .Where(text => text.Length > 0);
+
+    private static string Text(JsonElement parent, string name) =>
+        parent.ValueKind == JsonValueKind.Object && parent.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? string.Empty
+            : string.Empty;
 
     /// <summary>
     /// The best of TMDB's results for what was typed.
@@ -152,6 +295,9 @@ internal partial class TmdbMovieLookup : IMovieLookup
 
     [GeneratedRegex(@"^(?<title>.*?)[\s,(\[]+(?<year>(?:18|19|20)\d{2})[)\]]?\s*$")]
     private static partial Regex TrailingYear();
+
+    [GeneratedRegex(@"\s+(?:(?:Amazon|Apple TV|Roku Premium)\s+Channel|(?:Basic|Standard|Premium)?\s*with\s+Ads)$", RegexOptions.IgnoreCase)]
+    private static partial Regex ChannelOrPlanSuffix();
 
     // TMDB's shapes, nullable because its JSON can leave anything out. Read only by Choose, which
     // turns every null into a default before anything leaves this class.

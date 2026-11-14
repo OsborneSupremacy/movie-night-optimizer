@@ -24,6 +24,10 @@ public class TmdbMovieLookupTests
             Popularity = popularity
         };
 
+    /// <summary>The search requests, leaving out the details request a found movie also makes.</summary>
+    private static IEnumerable<HttpRequestMessage> Searches(FakeHttpHandler handler) =>
+        handler.Requests.Where(request => request.RequestUri!.AbsolutePath.EndsWith("/search/movie"));
+
     private static string Page(params object[] results) =>
         JsonSerializer.Serialize(new { page = 1, results });
 
@@ -94,7 +98,7 @@ public class TmdbMovieLookupTests
         var match = await lookup.FindAsync("Alien");
 
         match.TmdbId.Should().Be(348);
-        var request = handler.Requests.Single();
+        var request = Searches(handler).Single();
         request.Headers.Authorization!.ToString().Should().Be($"Bearer {Token}");
         request.RequestUri!.Query.Should().Contain("include_adult=false").And.Contain("query=Alien");
     }
@@ -111,7 +115,7 @@ public class TmdbMovieLookupTests
         var match = await lookup.FindAsync("Blade Runner 2049");
 
         match.TmdbId.Should().Be(335984);
-        handler.Requests.Should().HaveCount(2);
+        Searches(handler).Should().HaveCount(2);
     }
 
     [Theory]
@@ -169,6 +173,119 @@ public class TmdbMovieLookupTests
 
         (await lookup.FindAsync("Alien")).Should().Be(MovieMatch.None);
         handler.Requests.Should().BeEmpty();
+    }
+
+    private const string PaddingtonDetails = """
+        {
+          "id": 346648,
+          "runtime": 104,
+          "genres": [ { "id": 12, "name": "Adventure" }, { "id": 35, "name": "Comedy" }, { "id": 10751, "name": "Family" }, { "id": 1, "name": "Fourth" } ],
+          "release_dates": { "results": [
+            { "iso_3166_1": "GB", "release_dates": [ { "type": 3, "certification": "PG" } ] },
+            { "iso_3166_1": "US", "release_dates": [ { "type": 5, "certification": "G" }, { "type": 3, "certification": "PG" } ] }
+          ] },
+          "watch/providers": { "results": { "US": {
+            "flatrate": [
+              { "provider_name": "HBO Max Amazon Channel", "display_priority": 14 },
+              { "provider_name": "HBO Max", "display_priority": 154 },
+              { "provider_name": "Netflix Standard with Ads", "display_priority": 20 }
+            ],
+            "rent": [ { "provider_name": "Apple TV", "display_priority": 2 } ]
+          } } },
+          "videos": { "results": [
+            { "site": "YouTube", "type": "Teaser", "official": true, "key": "teaser" },
+            { "site": "YouTube", "type": "Trailer", "official": false, "key": "fan" },
+            { "site": "YouTube", "type": "Trailer", "official": true, "key": "official" }
+          ] }
+        }
+        """;
+
+    [Fact]
+    public void ParseDetails_ReadsEveryPart()
+    {
+        var details = ParseDetails(PaddingtonDetails);
+
+        details.Certification.Should().Be("PG", "the US theatrical rating beats the US home release's");
+        details.RuntimeMinutes.Should().Be(104);
+        details.Genres.Should().Equal("Adventure", "Comedy", "Family");
+        details.StreamingOn.Should().Equal(["HBO Max", "Netflix"], "channel and ad-plan variants are the same service, and rentals don't count");
+        details.TrailerUrl.Should().Be("https://www.youtube.com/watch?v=official");
+    }
+
+    [Fact]
+    public void ParseDetails_MissingOrMalformedParts_LeaveOnlyThemselvesOut()
+    {
+        const string json = """
+            { "runtime": null, "genres": "not a list", "release_dates": { "results": [] },
+              "watch/providers": { "results": { "GB": { "flatrate": [ { "provider_name": "BBC iPlayer" } ] } } },
+              "videos": { "results": [ { "site": "Vimeo", "type": "Trailer", "key": "x" } ] } }
+            """;
+
+        ParseDetails(json).Should().BeEquivalentTo(MovieDetails.Empty);
+    }
+
+    [Fact]
+    public void ParseDetails_NoAppendedParts_IsJustTheBasics()
+    {
+        var details = ParseDetails("""{ "runtime": 88, "genres": [ { "name": "Animation" } ] }""");
+
+        details.RuntimeMinutes.Should().Be(88);
+        details.Genres.Should().Equal("Animation");
+        details.Certification.Should().BeEmpty();
+        details.StreamingOn.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("HBO Max Amazon Channel", "HBO Max")]
+    [InlineData("Starz Apple TV Channel", "Starz")]
+    [InlineData("Paramount+ Roku Premium Channel", "Paramount+")]
+    [InlineData("Netflix Standard with Ads", "Netflix")]
+    [InlineData("Netflix basic with Ads", "Netflix")]
+    [InlineData("Disney Plus", "Disney Plus")]
+    public void ServiceName_DropsChannelAndPlanSuffixes(string providerName, string expected) =>
+        ServiceName(providerName).Should().Be(expected);
+
+    [Fact]
+    public async Task FindAsync_AFoundMovie_GetsItsDetails()
+    {
+        var (lookup, handler) = Build((request, _) => Task.FromResult(FakeHttpHandler.Json(
+            request.RequestUri!.AbsolutePath.EndsWith("/movie/346648")
+                ? PaddingtonDetails
+                : Page(Raw(346648, "Paddington 2", "2017-11-10")))));
+
+        var match = await lookup.FindAsync("Paddington 2");
+
+        match.Details.Certification.Should().Be("PG");
+        handler.Requests.Last().RequestUri!.Query.Should().Contain("append_to_response=release_dates,watch/providers,videos");
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.TooManyRequests)]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    public async Task FindAsync_DetailsFail_KeepsTheMatchWithoutThem(HttpStatusCode status)
+    {
+        var (lookup, _) = Build((request, _) => Task.FromResult(
+            request.RequestUri!.AbsolutePath.EndsWith("/movie/348")
+                ? FakeHttpHandler.Json("{}", status)
+                : FakeHttpHandler.Json(Page(Raw(348, "Alien", "1979-05-25")))));
+
+        var match = await lookup.FindAsync("Alien");
+
+        match.TmdbId.Should().Be(348);
+        match.Year.Should().Be("1979");
+        match.Details.Should().BeEquivalentTo(MovieDetails.Empty);
+    }
+
+    [Fact]
+    public async Task FindAsync_DetailsAreGarbled_KeepsTheMatchWithoutThem()
+    {
+        var (lookup, _) = Build((request, _) => Task.FromResult(FakeHttpHandler.Json(
+            request.RequestUri!.AbsolutePath.EndsWith("/movie/348") ? "not json" : Page(Raw(348, "Alien", "1979-05-25")))));
+
+        var match = await lookup.FindAsync("Alien");
+
+        match.TmdbId.Should().Be(348);
+        match.Details.Should().BeEquivalentTo(MovieDetails.Empty);
     }
 
     [Fact]

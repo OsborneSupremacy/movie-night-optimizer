@@ -58,6 +58,31 @@ public class NightEmailsTests
     }
 
     [Fact]
+    public void Results_SaysHowLongTheWinnerIsAndWhereToWatchIt()
+    {
+        var details = MovieDetails.Empty with { Certification = "PG", RuntimeMinutes = 104, StreamingOn = ["HBO Max", "Netflix"] };
+        var night = Night(NightPhase.Done,
+            Person("a", "Paddington 2", false, "b") with { MovieYear = "2017", Details = details },
+            Person("b", "Big", false, "a"),
+            Person("c", "", false, "a", "b"));
+
+        var email = NightEmails.Results(night, Link, StopLink);
+
+        email.TextBody.Should().Contain("Rated PG · 1h 44m").And.Contain("Streaming on HBO Max, Netflix.").And.Contain("JustWatch");
+        email.HtmlBody.Should().Contain("Streaming on HBO Max, Netflix.").And.Contain("JustWatch");
+    }
+
+    [Fact]
+    public void Results_WinnerWithNoDetails_SaysNothingAboutThem()
+    {
+        var night = Night(NightPhase.Done, Person("a", "Alien", false, "b"), Person("b", "Big", false, "a"), Person("c", "", false, "a", "b"));
+
+        var email = NightEmails.Results(night, Link, StopLink);
+
+        email.TextBody.Should().NotContain("Streaming on").And.NotContain("Rated").And.NotContain("JustWatch");
+    }
+
+    [Fact]
     public void Results_NoSuggestions_SaysSoRatherThanNamingAWinner()
     {
         var night = Night(NightPhase.Done, Person("a"), Person("b"));

@@ -41,9 +41,11 @@ which is checked before every send, and takes the person out of their night so n
 them.
 
 Each suggestion is looked up with [TMDB](https://www.themoviedb.org/), which gives it its proper
-title, year and poster: "princess bride" becomes *The Princess Bride* (1987). TMDB is an
-enhancement, never a dependency. If it is down, slow, rate limiting or finds nothing, the
-suggestion is saved exactly as typed, and the whole lookup is given 1.5 seconds at most.
+title, year and poster: "princess bride" becomes *The Princess Bride* (1987). A second request
+fetches what helps people rank a movie they haven't seen: its US rating, runtime, genres, where it
+streams in the US (from JustWatch) and a trailer. TMDB is an enhancement, never a dependency. If it
+is down, slow, rate limiting or finds nothing, the suggestion is saved exactly as typed, and if
+only the details fail, the title, year and poster are kept. Both requests together get 1.5 seconds.
 
 Each movie can only be suggested once. A second person suggesting the same movie is asked for
 another pick, because two entries would split the movie's votes. When TMDB found both, its ids
@@ -129,8 +131,10 @@ dotnet test
 - [x] CI: build, tests and Terraform checks on every push
 - [x] An app-wide daily cap, and a do-not-email list with a link in every email
 - [x] TMDB titles, years and posters, falling back to the typed title
+- [x] Rating, runtime, genres, streaming services and trailer on each ranking card
 
 ## Credits
 
 Movie details and posters are from [TMDB](https://www.themoviedb.org/). This product uses the TMDB
-API but is not endorsed or certified by TMDB.
+API but is not endorsed or certified by TMDB. Streaming availability is from
+[JustWatch](https://www.justwatch.com/).

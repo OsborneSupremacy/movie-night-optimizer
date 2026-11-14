@@ -82,6 +82,11 @@ internal static class TestNights
                 item["TmdbId"] = new() { N = participant.TmdbId.ToString() };
                 item["MovieYear"] = new() { S = participant.MovieYear };
                 item["PosterPath"] = new() { S = participant.PosterPath };
+                item["Certification"] = new() { S = participant.Details.Certification };
+                item["RuntimeMinutes"] = new() { N = participant.Details.RuntimeMinutes.ToString() };
+                item["Genres"] = new() { S = string.Join("|", participant.Details.Genres) };
+                item["StreamingOn"] = new() { S = string.Join("|", participant.Details.StreamingOn) };
+                item["TrailerUrl"] = new() { S = participant.Details.TrailerUrl };
             }
 
             if(participant.Ranking.Count > 0)
