@@ -35,7 +35,8 @@ If someone never answers, the organizer can close the round and move on, so one 
 - **Opening a link never changes anything.** Corporate mail scanners follow every link in an email. If opening a link recorded an answer, a scanner could vote for someone. Every link only reads; answering takes a button press.
 - **No accounts, and no stored secrets.** Each person's link carries a random 256-bit token in the URL fragment, which browsers never send to servers, so it stays out of access logs. The API receives the token in a header, and only its SHA-256 hash is stored. Each round's email carries a fresh token, so every link anyone has been sent keeps working.
 - **Exactly one round of email, even under a race.** The last two people often answer at almost the same moment. Every write is a DynamoDB transaction conditional on the night's current phase, and the phase moves on only from the phase it was read in. However the requests interleave, only one of them moves the night on and sends the next email.
-- **Abuse limits on a public endpoint.** Creating a night sends mail to addresses a stranger typed, so each inbox can start at most three nights a day, with at most eight people per night. Address variants like `me+1@gmail.com` count as the same inbox.
+- **Abuse limits on a public endpoint.** Creating a night sends mail to addresses a stranger typed, from an SES account other apps share. Each inbox can start at most three nights a day, with at most eight people per night, and address variants like `me+1@gmail.com` count as the same inbox. Someone could invent new organizer addresses, so the whole app also stops at 50 nights a day.
+- **A way out for anyone who gets mail.** Every email ends with a link to stop email for good. Pressing the button on its page adds the inbox to a permanent do-not-email list. The list stores a hash of the inbox, never the address. It's checked before every send, so no future night from anyone can reach that inbox. The person is also taken out of their current night, so no round waits on them.
 - **Fair scoring.** A Borda count is only fair if every ballot ranks the same number of movies, so a ranking must include every other movie exactly once.
 - **One entry per movie.** If two people suggest the same movie, its votes would be split between two entries. Merging the entries would leave that movie off two ballots instead of one, which breaks the fairness above. So the second person is told "Great minds! Someone already suggested that one" and asked for another pick. Titles match ignoring case, punctuation and a leading "The", so "princess bride!" is caught. Only that one title is revealed, so nobody anchors on the others' picks.
 
@@ -58,6 +59,12 @@ The first request after the site has been idle takes about a second, so click th
 | 2:15–2:40 | The architecture diagram. | CloudFront in front of S3 and an HTTP API, one Lambda, DynamoDB, SES. All serverless, all Terraform. |
 | 2:40–2:50 | Optionally, the organizer's "close this round" button. | One person can't stall the night. |
 | 2:50–3:00 | The site URL. | |
+
+## What a real launch would add
+
+- **Confirm the organizer first.** Today anyone can type any organizer address. Emailing the organizer first, and inviting the guests only once they press a button, would require a real inbox for every night.
+- **Check suggestions against a movie catalog** such as TMDB. That makes harassment-by-title much harder, and adds posters and autocomplete. A narrow toxicity check with Amazon Comprehend (hate speech and harassment only) could cover free text, since real titles like *Kill Bill* would trip its violence and profanity scores.
+- **A WAF rate-based rule on CloudFront**, to limit requests per IP address.
 
 ## Before submitting
 
