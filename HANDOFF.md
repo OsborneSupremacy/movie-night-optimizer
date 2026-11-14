@@ -67,8 +67,8 @@ It adds:
 - `docs/SUBMISSION.md`: a draft write-up (problem, how it works, services, design decisions) and
   a timed demo script.
 
-Deployed in test mode: all mail goes to `movienight@osbornesupremacy.com`. Redeploy in test mode
-with:
+**Deployed in live mode** (since Saturday morning, for filming): mail goes to the real
+addresses. To go back to test mode, where all mail goes to `movienight@osbornesupremacy.com`:
 
     AWS_PROFILE=ben ./scripts/deploy.sh -var live_mode=false -var test_recipient=movienight@osbornesupremacy.com
 
