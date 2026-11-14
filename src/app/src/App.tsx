@@ -17,6 +17,13 @@ export default function App() {
           <Route path="*" element={<p>There's nothing at this address.</p>} />
         </Routes>
       </main>
+      <footer className="credits">
+        Movie details and posters from{' '}
+        <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">
+          TMDB
+        </a>
+        . This product uses the TMDB API but is not endorsed or certified by TMDB.
+      </footer>
     </div>
   )
 }

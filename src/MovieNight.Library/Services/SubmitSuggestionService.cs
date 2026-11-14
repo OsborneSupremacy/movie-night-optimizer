@@ -1,4 +1,4 @@
-namespace MovieNight.Library.Services;
+﻿namespace MovieNight.Library.Services;
 
 /// <summary>
 /// POST /api/nights/{nightId}/suggestion. Records one movie for this participant while the night
@@ -20,13 +20,17 @@ internal class SubmitSuggestionService : IApiGatewayHandler
 
     private readonly PhaseAdvancer _phaseAdvancer;
 
+    private readonly IMovieLookup _movieLookup;
+
     public SubmitSuggestionService(
         ApiGatewayAdapter adapter,
         NightReader nightReader,
         NightProvider nightProvider,
-        PhaseAdvancer phaseAdvancer
+        PhaseAdvancer phaseAdvancer,
+        IMovieLookup movieLookup
     )
     {
+        _movieLookup = movieLookup ?? throw new ArgumentNullException(nameof(movieLookup));
         _adapter = adapter ?? throw new ArgumentNullException(nameof(adapter));
         _nightReader = nightReader ?? throw new ArgumentNullException(nameof(nightReader));
         _nightProvider = nightProvider ?? throw new ArgumentNullException(nameof(nightProvider));
@@ -66,11 +70,19 @@ internal class SubmitSuggestionService : IApiGatewayHandler
         if(night.Phase != NightPhase.Collecting)
             return new Result<NightView>(new InvalidOperationException(ClosedMessage), HttpStatusCode.Conflict);
 
+        // TMDB isn't asked about a title somebody already typed: the answer is no either way.
         if(NightProgress.IsTakenByAnother(night, participant.ParticipantId, request.Suggestion))
             return new Result<NightView>(new InvalidOperationException(TakenMessage), HttpStatusCode.Conflict);
 
+        // Never fails: with no match the suggestion is saved as typed, as if TMDB didn't exist.
+        var match = await _movieLookup.FindAsync(request.Suggestion).ConfigureAwait(false);
+        var title = match.IsFound ? match.Title : request.Suggestion;
+
+        if(match.IsFound && NightProgress.IsTakenByAnother(night, participant.ParticipantId, title, match.TmdbId))
+            return new Result<NightView>(new InvalidOperationException(TakenMessage), HttpStatusCode.Conflict);
+
         var saved = await _nightProvider
-            .SaveSuggestionAsync(night.NightId, participant.ParticipantId, request.Suggestion)
+            .SaveSuggestionAsync(night.NightId, participant.ParticipantId, title, match)
             .ConfigureAwait(false);
 
         if(!saved)

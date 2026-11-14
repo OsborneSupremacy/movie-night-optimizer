@@ -16,9 +16,9 @@ resource "aws_cloudfront_function" "spa_router" {
   code    = file("${path.module}/functions/spa-router.js")
 }
 
-# The same headers on the site and the API. The content security policy allows only this origin:
-# the build has no inline scripts, the API is same-origin, and the page loads nothing from anywhere
-# else. no-referrer matches the meta tag in index.html; the token is in the URL fragment, which no
+# The same headers on the site and the API. The content security policy allows only this origin,
+# plus TMDB's image host for posters: the build has no inline scripts, the API is same-origin, and
+# the page loads nothing else from anywhere else. no-referrer matches the meta tag in index.html; the token is in the URL fragment, which no
 # Referer carries anyway, but nothing about a night needs to leave with a click.
 resource "aws_cloudfront_response_headers_policy" "security" {
   name    = "movienight-security-headers"
@@ -50,7 +50,7 @@ resource "aws_cloudfront_response_headers_policy" "security" {
         "default-src 'self'",
         "script-src 'self'",
         "style-src 'self'",
-        "img-src 'self' data:",
+        "img-src 'self' data: https://image.tmdb.org",
         "connect-src 'self'",
         "object-src 'none'",
         "base-uri 'self'",

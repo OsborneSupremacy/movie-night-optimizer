@@ -226,3 +226,69 @@ button.icon:disabled {
   font-size: 0.9rem;
   overflow-wrap: anywhere;
 }
+
+.poster {
+  flex: none;
+  display: block;
+  border-radius: 0.35rem;
+  background: var(--background);
+  object-fit: cover;
+}
+
+.poster-small {
+  width: 2.25rem;
+  height: 3.375rem;
+}
+
+.poster-large {
+  width: 8rem;
+  height: 12rem;
+  margin-bottom: 1.25rem;
+}
+
+.poster-missing {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  font-size: 1rem;
+}
+
+.poster-large.poster-missing {
+  font-size: 2.5rem;
+}
+
+.your-pick {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+
+.your-pick .poster-large {
+  margin-bottom: 1.5rem;
+}
+
+.year {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.your-pick .year {
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+}
+
+.hint {
+  font-size: 0.9rem;
+}
+
+.credits {
+  margin-top: 4rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.credits a {
+  color: var(--muted);
+}

@@ -27,6 +27,7 @@ resource "aws_lambda_function" "movienight" {
         SITE_URL       = "https://${local.site_domain}"
         SENDER_ADDRESS = local.sender_address
         LIVE_MODE      = tostring(var.live_mode)
+        TMDB_SECRET_ID = aws_secretsmanager_secret.tmdb.arn
       },
       var.test_recipient == "" ? {} : { TEST_RECIPIENT = var.test_recipient }
     )
@@ -97,6 +98,23 @@ resource "aws_iam_role_policy" "movienight_ses_policy" {
           "ses:SendRawEmail"
         ]
         Resource = [aws_ses_domain_identity.movienight.arn]
+      }
+    ]
+  })
+}
+
+# Read access to the TMDB credentials and nothing else in Secrets Manager.
+resource "aws_iam_role_policy" "movienight_tmdb_secret_policy" {
+  name = "movienight-tmdb-secret-policy"
+  role = aws_iam_role.movienight_exec_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
+        Resource = [aws_secretsmanager_secret.tmdb.arn]
       }
     ]
   })

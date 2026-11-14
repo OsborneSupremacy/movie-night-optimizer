@@ -1,5 +1,6 @@
 ﻿using Amazon;
 using Amazon.Extensions.NETCore.Setup;
+using Amazon.SecretsManager;
 using Amazon.SimpleEmail;
 
 namespace MovieNight.Library.Builders;
@@ -20,6 +21,7 @@ internal static class ServiceProviderBuilder
         return services
             .AddDefaultAWSOptions(new AWSOptions { Region = region })
             .AddAWSService<IAmazonDynamoDB>()
+            .AddAWSService<IAmazonSecretsManager>()
             .AddSingleton<IAmazonSimpleEmailService, AmazonSimpleEmailServiceClient>(); // AddAWSService fails for SES
     }
 
@@ -49,6 +51,18 @@ internal static class ServiceProviderBuilder
         services
             .AddSingleton<NightProvider>()
             .AddSingleton<DoNotEmailProvider>()
+            .AddSingleton<ITmdbTokenSource, TmdbTokenSource>()
+            .AddSingleton<IMovieLookup>(provider => new TmdbMovieLookup(
+                // One client for the life of the instance, so its connections are reused. Its own
+                // timeout is a backstop; each lookup has a tighter budget of its own.
+                new HttpClient
+                {
+                    BaseAddress = new Uri("https://api.themoviedb.org/3/"),
+                    Timeout = TimeSpan.FromSeconds(5)
+                },
+                provider.GetRequiredService<ITmdbTokenSource>(),
+                provider.GetRequiredService<ILogger<TmdbMovieLookup>>()
+            ))
             .AddSingleton<EmailSender>()
             .AddSingleton<NightReader>()
             .AddSingleton<PhaseAdvancer>()

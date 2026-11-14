@@ -198,6 +198,12 @@ internal class NightProvider
                 IsOrganizer = item.TryGetValue("IsOrganizer", out var isOrganizer) && isOrganizer.BOOL == true,
                 OptedOut = item.TryGetValue("OptedOut", out var optedOut) && optedOut.BOOL == true,
                 Suggestion = GetString(item, "Suggestion"),
+                TmdbId = item.TryGetValue("TmdbId", out var tmdbId)
+                    && int.TryParse(tmdbId.N, NumberStyles.None, CultureInfo.InvariantCulture, out var id)
+                        ? id
+                        : 0,
+                MovieYear = GetString(item, "MovieYear"),
+                PosterPath = GetString(item, "PosterPath"),
                 Ranking = item.TryGetValue("Ranking", out var ranking) && ranking.L is not null
                     ? ranking.L.Select(value => value.S ?? string.Empty).ToImmutableList()
                     : []
@@ -245,16 +251,26 @@ internal class NightProvider
     }
 
     /// <summary>
-    /// Records a participant's movie, replacing any they suggested before. False if the night has
-    /// stopped collecting, or the participant isn't in it.
+    /// Records a participant's movie, replacing any they suggested before, TMDB's details and all.
+    /// False if the night has stopped collecting, or the participant isn't in it.
     /// </summary>
-    public Task<bool> SaveSuggestionAsync(string nightId, string participantId, string suggestion) =>
+    /// <remarks>
+    /// Every field is written every time, empty or not, so a new suggestion TMDB couldn't find
+    /// doesn't keep the poster of the one it replaced.
+    /// </remarks>
+    public Task<bool> SaveSuggestionAsync(string nightId, string participantId, string title, MovieMatch match) =>
         UpdateParticipantInPhaseAsync(
             nightId,
             participantId,
             NightPhase.Collecting,
-            "SET Suggestion = :value",
-            new AttributeValue { S = suggestion }
+            "SET Suggestion = :title, TmdbId = :tmdbId, MovieYear = :year, PosterPath = :poster",
+            new Dictionary<string, AttributeValue>
+            {
+                [":title"] = new() { S = title },
+                [":tmdbId"] = new() { N = match.TmdbId.ToString(CultureInfo.InvariantCulture) },
+                [":year"] = new() { S = match.Year },
+                [":poster"] = new() { S = match.PosterPath }
+            }
         );
 
     /// <summary>
@@ -267,7 +283,10 @@ internal class NightProvider
             participantId,
             NightPhase.Ranking,
             "SET Ranking = :value",
-            new AttributeValue { L = ranking.Select(movieId => new AttributeValue { S = movieId }).ToList() }
+            new Dictionary<string, AttributeValue>
+            {
+                [":value"] = new() { L = ranking.Select(movieId => new AttributeValue { S = movieId }).ToList() }
+            }
         );
 
     /// <summary>
@@ -332,7 +351,7 @@ internal class NightProvider
         string participantId,
         NightPhase phase,
         string updateExpression,
-        AttributeValue value
+        Dictionary<string, AttributeValue> values
     ) =>
         TryTransactWriteAsync(new TransactWriteItemsRequest
         {
@@ -359,10 +378,7 @@ internal class NightProvider
                         Key = BuildKey(nightId, $"{ParticipantSortKeyPrefix}{participantId}"),
                         UpdateExpression = updateExpression,
                         ConditionExpression = "attribute_exists(PK)",
-                        ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-                        {
-                            [":value"] = value
-                        }
+                        ExpressionAttributeValues = values
                     }
                 }
             ]

@@ -14,6 +14,7 @@ global using Microsoft.Extensions.Logging.Abstractions;
 global using NSubstitute;
 global using NSubstitute.ExceptionExtensions;
 
+global using MovieNight.Library.Abstractions;
 global using MovieNight.Library.Extensions;
 global using MovieNight.Library.Messaging;
 global using MovieNight.Library.Models;

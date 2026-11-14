@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 
 namespace MovieNight.Library.Services;
 
@@ -9,6 +9,9 @@ namespace MovieNight.Library.Services;
 /// </summary>
 internal static class NightViewBuilder
 {
+    /// <summary>Big enough for a crisp thumbnail on a phone's screen, small enough to load fast.</summary>
+    private const string PosterWidth = "w185";
+
     public static NightView Build(Night night, Participant viewer) =>
         new()
         {
@@ -17,23 +20,34 @@ internal static class NightViewBuilder
             Phase = night.Phase.ToString().ToLowerInvariant(),
             IsOrganizer = viewer.IsOrganizer,
             YourSuggestion = viewer.Suggestion,
+            YourYear = viewer.MovieYear,
+            YourPosterUrl = NightProgress.PosterUrl(viewer.PosterPath, PosterWidth),
             HasAnswered = NightProgress.HasAnswered(night, viewer),
             ParticipantCount = night.Participants.Count,
             AnsweredCount = night.Participants.Count(participant => NightProgress.HasAnswered(night, participant)),
             ToRank = night.Phase == NightPhase.Ranking
                 ? NightProgress.MoviesToRank(night, viewer.ParticipantId)
-                    .Select(movie => new MovieView { MovieId = movie.ParticipantId, Title = movie.Suggestion })
+                    .Select(movie => new MovieView
+                    {
+                        MovieId = movie.ParticipantId,
+                        Title = movie.Suggestion,
+                        Year = movie.MovieYear,
+                        PosterUrl = NightProgress.PosterUrl(movie.PosterPath, PosterWidth)
+                    })
                     .ToImmutableList()
                 : [],
             Results = night.Phase == NightPhase.Done
                 ? NightProgress.Score(night)
-                    .Select(score => new ResultView
+                    .Select(score => (score, movie: NightProgress.SuggesterOf(night, score.MovieId)))
+                    .Select(scored => new ResultView
                     {
-                        MovieId = score.MovieId,
-                        Title = NightProgress.TitleOf(night, score.MovieId),
-                        Points = score.Points,
-                        FirstPlaceVotes = score.FirstPlaceVotes,
-                        IsYours = score.MovieId == viewer.ParticipantId
+                        MovieId = scored.score.MovieId,
+                        Title = scored.movie.Suggestion,
+                        Year = scored.movie.MovieYear,
+                        PosterUrl = NightProgress.PosterUrl(scored.movie.PosterPath, PosterWidth),
+                        Points = scored.score.Points,
+                        FirstPlaceVotes = scored.score.FirstPlaceVotes,
+                        IsYours = scored.score.MovieId == viewer.ParticipantId
                     })
                     .ToImmutableList()
                 : [],

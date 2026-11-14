@@ -25,6 +25,8 @@ public class NightServicesTests
 
     private readonly DoNotEmailProvider _doNotEmail;
 
+    private readonly IMovieLookup _movieLookup = Substitute.For<IMovieLookup>();
+
     public NightServicesTests()
     {
         _adapter = new ApiGatewayAdapter(
@@ -41,6 +43,9 @@ public class NightServicesTests
         // answer GetItem with null, which the real client never does.
         _dynamoDb.GetItemAsync(Arg.Any<GetItemRequest>(), Arg.Any<CancellationToken>())
             .Returns(new GetItemResponse());
+
+        // TMDB finds nothing unless a test says otherwise.
+        _movieLookup.FindAsync(Arg.Any<string>()).Returns(MovieMatch.None);
         _phaseAdvancer = new PhaseAdvancer(_nightProvider, _emailSender, NullLogger<PhaseAdvancer>.Instance);
     }
 
@@ -298,6 +303,81 @@ public class NightServicesTests
         Transactions().Should().BeEmpty();
     }
 
+    private static readonly MovieMatch PrincessBride = new()
+    {
+        TmdbId = 2493, Title = "The Princess Bride", Year = "1987", PosterPath = "/bride.jpg"
+    };
+
+    [Fact]
+    public async Task SubmitSuggestion_TmdbFindsIt_SavesTmdbsTitleAndDetails()
+    {
+        GivenTheNightReads(Night(NightPhase.Collecting, Person("a"), Person("b")));
+        _movieLookup.FindAsync("princess bride").Returns(PrincessBride);
+
+        await SubmitSuggestionService().ExecuteAsync(Suggestion("a", "princess bride"));
+
+        var values = Transactions().Single().TransactItems[1].Update.ExpressionAttributeValues;
+        values[":title"].S.Should().Be("The Princess Bride");
+        values[":tmdbId"].N.Should().Be("2493");
+        values[":year"].S.Should().Be("1987");
+        values[":poster"].S.Should().Be("/bride.jpg");
+    }
+
+    [Fact]
+    public async Task SubmitSuggestion_TmdbFindsNothingOrIsDown_SavesWhatWasTyped()
+    {
+        GivenTheNightReads(Night(NightPhase.Collecting, Person("a"), Person("b")));
+
+        var result = await SubmitSuggestionService().ExecuteAsync(Suggestion("a", "Grandpa's home videos"));
+
+        result.IsSuccess.Should().BeTrue();
+        var values = Transactions().Single().TransactItems[1].Update.ExpressionAttributeValues;
+        values[":title"].S.Should().Be("Grandpa's home videos");
+        values[":tmdbId"].N.Should().Be("0");
+    }
+
+    [Fact]
+    public async Task SubmitSuggestion_TheSameTmdbMovieTypedDifferently_Is409()
+    {
+        var taken = Person("a", "Paddington 2") with { TmdbId = 346648, MovieYear = "2017" };
+        GivenTheNightReads(Night(NightPhase.Collecting, taken, Person("b")));
+        _movieLookup.FindAsync("Paddington Two").Returns(new MovieMatch
+        {
+            TmdbId = 346648, Title = "Paddington 2", Year = "2017", PosterPath = ""
+        });
+
+        var result = await SubmitSuggestionService().ExecuteAsync(Suggestion("b", "Paddington Two"));
+
+        result.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        Transactions().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SubmitSuggestion_ADifferentFilmWithTheSameTitle_IsAllowed()
+    {
+        var dune2021 = Person("a", "Dune") with { TmdbId = 438631, MovieYear = "2021" };
+        GivenTheNightReads(Night(NightPhase.Collecting, dune2021, Person("b")));
+        _movieLookup.FindAsync("Dune 1984").Returns(new MovieMatch
+        {
+            TmdbId = 841, Title = "Dune", Year = "1984", PosterPath = ""
+        });
+
+        var result = await SubmitSuggestionService().ExecuteAsync(Suggestion("b", "Dune 1984"));
+
+        result.IsSuccess.Should().BeTrue();
+        Transactions().Single().TransactItems[1].Update.ExpressionAttributeValues[":tmdbId"].N.Should().Be("841");
+    }
+
+    [Fact]
+    public async Task SubmitSuggestion_ATitleAlreadyTyped_IsTurnedAwayWithoutAskingTmdb()
+    {
+        GivenTheNightReads(Night(NightPhase.Collecting, Person("a", "Alien"), Person("b")));
+
+        await SubmitSuggestionService().ExecuteAsync(Suggestion("b", "alien"));
+
+        await _movieLookup.DidNotReceiveWithAnyArgs().FindAsync(default!);
+    }
+
     [Fact]
     public async Task SubmitSuggestion_AfterCollectingClosed_Is409()
     {
@@ -402,7 +482,7 @@ public class NightServicesTests
                 Item = new Dictionary<string, AttributeValue> { ["PK"] = new() { S = DoNotEmailProvider.KeyFor(email) } }
             });
 
-    private SubmitSuggestionService SubmitSuggestionService() => new(_adapter, _nightReader, _nightProvider, _phaseAdvancer);
+    private SubmitSuggestionService SubmitSuggestionService() => new(_adapter, _nightReader, _nightProvider, _phaseAdvancer, _movieLookup);
 
     private SubmitRankingService SubmitRankingService() => new(_adapter, _nightReader, _nightProvider, _phaseAdvancer);
 

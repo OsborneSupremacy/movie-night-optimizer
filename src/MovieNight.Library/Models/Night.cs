@@ -39,8 +39,20 @@ public record Participant
     /// </summary>
     public bool OptedOut { get; init; }
 
-    /// <summary>The movie they suggested, or empty until they have.</summary>
+    /// <summary>
+    /// The movie they suggested, or empty until they have. TMDB's title when it found the movie,
+    /// otherwise what they typed.
+    /// </summary>
     public string Suggestion { get; init; } = string.Empty;
+
+    /// <summary>TMDB's id for their movie, or 0 when it wasn't found or couldn't be asked.</summary>
+    public int TmdbId { get; init; }
+
+    /// <summary>The year their movie came out, or empty when unknown.</summary>
+    public string MovieYear { get; init; } = string.Empty;
+
+    /// <summary>TMDB's poster path for their movie, or empty.</summary>
+    public string PosterPath { get; init; } = string.Empty;
 
     /// <summary>
     /// The participant ids whose suggestions they ranked, best first. Empty until they have.

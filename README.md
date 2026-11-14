@@ -40,9 +40,15 @@ Every email has a link to stop email for good. That adds a hash of the inbox to 
 which is checked before every send, and takes the person out of their night so no round waits on
 them.
 
-Each movie can only be suggested once. A second person suggesting the same title is asked for
-another pick, because two entries would split the movie's votes. Titles match ignoring case,
-punctuation and a leading "The".
+Each suggestion is looked up with [TMDB](https://www.themoviedb.org/), which gives it its proper
+title, year and poster: "princess bride" becomes *The Princess Bride* (1987). TMDB is an
+enhancement, never a dependency. If it is down, slow, rate limiting or finds nothing, the
+suggestion is saved exactly as typed, and the whole lookup is given 1.5 seconds at most.
+
+Each movie can only be suggested once. A second person suggesting the same movie is asked for
+another pick, because two entries would split the movie's votes. When TMDB found both, its ids
+decide, so "Paddington Two" is *Paddington 2* while *Dune* (2021) and "Dune 1984" stay two films.
+Otherwise titles match ignoring case, punctuation and a leading "The".
 
 ## How it's built
 
@@ -52,6 +58,7 @@ punctuation and a leading "The".
 | API            | .NET 10 on AWS Lambda behind an API Gateway HTTP API. One router Lambda dispatches on the route key to a keyed handler. |
 | Data           | DynamoDB, one partition per night, removed by TTL after 30 days.                                |
 | Email          | SES, sending only.                                                                              |
+| Movie data     | TMDB's search API, with its token in Secrets Manager. Optional: without it, titles stay as typed. |
 | Infrastructure | Terraform.                                                                                      |
 
 The site and the API share one origin, `movienight.osbornesupremacy.com`. CloudFront sends
@@ -121,3 +128,9 @@ dotnet test
 - [x] Turning away a movie somebody else already suggested
 - [x] CI: build, tests and Terraform checks on every push
 - [x] An app-wide daily cap, and a do-not-email list with a link in every email
+- [x] TMDB titles, years and posters, falling back to the typed title
+
+## Credits
+
+Movie details and posters are from [TMDB](https://www.themoviedb.org/). This product uses the TMDB
+API but is not endorsed or certified by TMDB.

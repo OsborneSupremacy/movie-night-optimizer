@@ -94,17 +94,27 @@ internal static class NightEmails
             };
         }
 
-        var winner = NightProgress.TitleOf(night, scores[0].MovieId);
+        var winningMovie = NightProgress.SuggesterOf(night, scores[0].MovieId);
+        var winner = NightProgress.DisplayTitle(winningMovie);
         var headline = $"You're watching {winner}.";
 
         var lines = scores
             .Select((score, index) =>
-                $"{index + 1}. {NightProgress.TitleOf(night, score.MovieId)} ({Points(score.Points)})")
+                $"{index + 1}. {NightProgress.DisplayTitle(NightProgress.SuggesterOf(night, score.MovieId))} ({Points(score.Points)})")
             .ToImmutableList();
 
-        var list = "<ol style=\"padding-left:1.25rem;margin:0 0 1rem;\">"
+        // Mail clients often hold back remote images until asked, so the poster is a nicety and the
+        // email reads the same without it.
+        var posterUrl = NightProgress.PosterUrl(winningMovie.PosterPath, "w342");
+        var poster = posterUrl.Length > 0
+            ? $"<p style=\"margin:0 0 16px;\"><img src=\"{Encode(posterUrl)}\" alt=\"Poster for {Encode(winner)}\""
+                + " width=\"160\" style=\"display:block;width:160px;height:auto;border-radius:8px;\"></p>"
+            : string.Empty;
+
+        var list = poster
+            + "<ol style=\"padding-left:1.25rem;margin:0 0 1rem;\">"
             + string.Concat(scores.Select(score =>
-                $"<li style=\"margin:0 0 .25rem;\">{Encode(NightProgress.TitleOf(night, score.MovieId))}"
+                $"<li style=\"margin:0 0 .25rem;\">{Encode(NightProgress.DisplayTitle(NightProgress.SuggesterOf(night, score.MovieId)))}"
                 + $" <span style=\"color:#6b6478;\">({Points(score.Points)})</span></li>"))
             + "</ol>";
 

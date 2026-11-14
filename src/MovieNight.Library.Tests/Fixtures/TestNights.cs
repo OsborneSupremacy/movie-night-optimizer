@@ -77,6 +77,13 @@ internal static class TestNights
             if(participant.Suggestion.Length > 0)
                 item["Suggestion"] = new() { S = participant.Suggestion };
 
+            if(participant.TmdbId > 0)
+            {
+                item["TmdbId"] = new() { N = participant.TmdbId.ToString() };
+                item["MovieYear"] = new() { S = participant.MovieYear };
+                item["PosterPath"] = new() { S = participant.PosterPath };
+            }
+
             if(participant.Ranking.Count > 0)
                 item["Ranking"] = new() { L = participant.Ranking.Select(id => new AttributeValue { S = id }).ToList() };
 

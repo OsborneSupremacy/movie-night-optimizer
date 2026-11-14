@@ -67,11 +67,17 @@ export type NightPhase = 'collecting' | 'ranking' | 'done'
 export interface MovieView {
   movieId: string
   title: string
+  /** Empty when TMDB didn't find the movie. */
+  year: string
+  /** A small TMDB poster, or empty. */
+  posterUrl: string
 }
 
 export interface ResultView {
   movieId: string
   title: string
+  year: string
+  posterUrl: string
   points: number
   firstPlaceVotes: number
   isYours: boolean
@@ -86,6 +92,8 @@ export interface NightView {
   isOrganizer: boolean
   /** Empty until this participant has suggested a movie. */
   yourSuggestion: string
+  yourYear: string
+  yourPosterUrl: string
   /** Whether this participant has answered the current round. */
   hasAnswered: boolean
   participantCount: number

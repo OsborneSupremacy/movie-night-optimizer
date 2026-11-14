@@ -15,7 +15,7 @@
 
   <rect width="1240" height="660" fill="#f7f5fa"/>
   <text x="30" y="44" font-size="24" font-weight="700" fill="#1f1c28">Movie Night Optimizer</text>
-  <text x="30" y="70" class="note">One origin, one Lambda, one table. Every piece is serverless and defined in Terraform.</text>
+  <text x="30" y="70" class="note">One origin, one Lambda, one table. Every AWS piece is serverless and defined in Terraform. TMDB is optional: if it fails, suggestions are kept as typed.</text>
 
   <!-- Route 53 + ACM -->
   <rect class="box" x="260" y="100" width="210" height="100" rx="10" stroke-dasharray="6 4"/>
@@ -79,6 +79,20 @@
   <text x="850" y="536" class="detail">sends only; no inbound</text>
   <text x="850" y="556" class="detail">mail to handle</text>
 
+  <!-- Secrets Manager -->
+  <rect class="box" x="830" y="100" width="200" height="100" rx="10"/>
+  <rect x="830" y="100" width="6" height="100" rx="3" fill="#dd344c"/>
+  <text x="850" y="132" class="name">Secrets Manager</text>
+  <text x="850" y="156" class="detail">the TMDB token, read</text>
+  <text x="850" y="176" class="detail">once per instance</text>
+
+  <!-- TMDB, outside AWS -->
+  <rect class="box" x="1070" y="100" width="150" height="100" rx="10" stroke-dasharray="6 4"/>
+  <rect x="1070" y="100" width="6" height="100" rx="3" fill="#01b4e4"/>
+  <text x="1090" y="132" class="name">TMDB</text>
+  <text x="1090" y="156" class="detail">titles, years and</text>
+  <text x="1090" y="176" class="detail">posters (optional)</text>
+
   <!-- Edges -->
   <path class="edge" d="M200,340 L258,340" marker-end="url(#arrow)"/>
   <text x="206" y="330" class="label">HTTPS</text>
@@ -94,6 +108,9 @@
   <path class="edge" d="M1030,340 L1068,340" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
 
   <path class="edge" d="M930,400 L930,478" marker-end="url(#arrow)"/>
+
+  <path class="edge" d="M930,278 L930,202" marker-end="url(#arrow)"/>
+  <path class="edge" d="M1000,278 C1000,236 1145,250 1145,202" marker-end="url(#arrow)" stroke-dasharray="6 4"/>
 
   <path class="edge" d="M830,530 L115,530 L115,402" marker-end="url(#arrow)"/>
   <text x="300" y="520" class="label">three emails per person: suggest a movie, rank the others, the winner</text>

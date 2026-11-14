@@ -4,8 +4,8 @@
 #
 # ignore_changes keeps a later apply from putting the empty values back over the real ones.
 #
-# Nothing reads this yet. When a feature does, the Lambda's role gets secretsmanager:GetSecretValue
-# on this secret's ARN, and nothing broader.
+# The Lambda reads it to look suggestions up with TMDB, and may read this secret and no other
+# (see movienight_tmdb_secret_policy in lambda.tf).
 resource "aws_secretsmanager_secret" "tmdb" {
   name        = "movienight/tmdb"
   description = "TMDB API credentials for Movie Night Optimizer: apiReadAccessToken and apiKey"

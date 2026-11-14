@@ -93,6 +93,12 @@ public record NightView
     /// <summary>This participant's own movie, or empty until they have suggested one.</summary>
     public required string YourSuggestion { get; init; }
 
+    /// <summary>The year of this participant's movie, or empty.</summary>
+    public required string YourYear { get; init; }
+
+    /// <summary>The poster of this participant's movie, or empty.</summary>
+    public required string YourPosterUrl { get; init; }
+
     /// <summary>
     /// Whether this participant has answered the current round. Somebody with nothing to rank
     /// counts as having ranked.
@@ -125,6 +131,12 @@ public record MovieView
     public required string MovieId { get; init; }
 
     public required string Title { get; init; }
+
+    /// <summary>The year it came out, or empty when unknown.</summary>
+    public required string Year { get; init; }
+
+    /// <summary>A small poster from TMDB, or empty.</summary>
+    public required string PosterUrl { get; init; }
 }
 
 public record ResultView
@@ -132,6 +144,12 @@ public record ResultView
     public required string MovieId { get; init; }
 
     public required string Title { get; init; }
+
+    /// <summary>The year it came out, or empty when unknown.</summary>
+    public required string Year { get; init; }
+
+    /// <summary>A small poster from TMDB, or empty.</summary>
+    public required string PosterUrl { get; init; }
 
     public required int Points { get; init; }
 

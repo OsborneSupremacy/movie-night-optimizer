@@ -120,10 +120,18 @@ function Collecting({ night, token, onChange }: PhaseProps) {
   }
 
   if (!editing) {
+    const found = night.yourYear !== '' || night.yourPosterUrl !== ''
     return (
       <>
         <h1>You suggested {night.yourSuggestion}</h1>
-        <p>When everyone has suggested a movie, you'll get an email to rank the others' picks.</p>
+        <div className="your-pick">
+          <Poster url={night.yourPosterUrl} title={night.yourSuggestion} size="large" />
+          <div>
+            {night.yourYear && <p className="year">{night.yourYear}</p>}
+            <p>When everyone has suggested a movie, you'll get an email to rank the others' picks.</p>
+            {found && <p className="hint">Not the one you meant? Change it, and add the year.</p>}
+          </div>
+        </div>
         <button type="button" className="secondary" onClick={() => setEditing(true)}>
           Change my movie
         </button>
@@ -219,7 +227,11 @@ function Ranking({ night, token, onChange }: PhaseProps) {
             }}
           >
             <span className="rank-number">{index + 1}</span>
-            <span className="rank-title">{movie.title}</span>
+            <Poster url={movie.posterUrl} title={movie.title} />
+            <span className="rank-title">
+              {movie.title}
+              {movie.year && <span className="year"> {movie.year}</span>}
+            </span>
             <span className="rank-buttons">
               <button
                 type="button"
@@ -267,13 +279,15 @@ function Results({ night }: { night: NightView }) {
   }
 
   const [winner, runnerUp] = night.results
+  const winnerTitle = winner.year ? `${winner.title} (${winner.year})` : winner.title
   const tiedOnPoints = runnerUp !== undefined && runnerUp.points === winner.points
   // BordaScorer breaks a full tie by movie id, and movie ids are random, so it's a coin flip.
   const deadHeat = tiedOnPoints && runnerUp.firstPlaceVotes === winner.firstPlaceVotes
 
   return (
     <>
-      <h1>You're watching {winner.title}</h1>
+      <h1>You're watching {winnerTitle}</h1>
+      {winner.posterUrl && <Poster url={winner.posterUrl} title={winner.title} size="large" />}
       <p>
         {deadHeat
           ? `It was a dead heat, so ${winner.title} won a coin flip.`
@@ -284,8 +298,10 @@ function Results({ night }: { night: NightView }) {
       <ol className="results">
         {night.results.map((result) => (
           <li key={result.movieId} className={result.isYours ? 'yours' : undefined}>
+            <Poster url={result.posterUrl} title={result.title} />
             <span className="rank-title">
               {result.title}
+              {result.year && <span className="year"> {result.year}</span>}
               {result.isYours && <span className="tag">your pick</span>}
             </span>
             <span className="points">{result.points === 1 ? '1 point' : `${result.points} points`}</span>
@@ -341,5 +357,20 @@ function Progress({ night, token, onChange, onRefresh }: PhaseProps & { onRefres
         </>
       )}
     </aside>
+  )
+}
+
+/**
+ * A TMDB poster, or a plain placeholder of the same size when there isn't one, so a list where
+ * TMDB found some movies and not others still lines up.
+ */
+function Poster({ url, title, size = 'small' }: { url: string; title: string; size?: 'small' | 'large' }) {
+  const className = `poster poster-${size}`
+  return url ? (
+    <img className={className} src={url} alt={`Poster for ${title}`} loading="lazy" />
+  ) : (
+    <span className={`${className} poster-missing`} aria-hidden="true">
+      🎬
+    </span>
   )
 }

@@ -46,6 +46,20 @@ public class NightViewBuilderTests
     }
 
     [Fact]
+    public void Build_MoviesTmdbFound_CarryTheirYearAndAPosterUrl()
+    {
+        var night = Night(NightPhase.Ranking,
+            Person("a", "Alien") with { TmdbId = 348, MovieYear = "1979", PosterPath = "/alien.jpg" },
+            Person("b", "Home videos"));
+
+        var view = NightViewBuilder.Build(night, night.Participants[1]);
+
+        view.ToRank.Single().Year.Should().Be("1979");
+        view.ToRank.Single().PosterUrl.Should().Be("https://image.tmdb.org/t/p/w185/alien.jpg");
+        NightViewBuilder.Build(night, night.Participants[0]).ToRank.Single().PosterUrl.Should().BeEmpty();
+    }
+
+    [Fact]
     public void Build_Organizer_SeesWhoTheyAreWaitingOn()
     {
         var night = Night(NightPhase.Collecting, Person("a", "Alien", isOrganizer: true), Person("b"));

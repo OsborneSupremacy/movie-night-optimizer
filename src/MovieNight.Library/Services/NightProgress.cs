@@ -110,14 +110,20 @@ internal static class NightProgress
     /// The participant's own earlier suggestion doesn't count, so they can resubmit it. Two people
     /// sending the same new title at the same instant can both get through; that is rare enough,
     /// and harmless enough, to accept.
+    ///
+    /// When TMDB found both movies, its ids decide, so "Paddington Two" is Paddington 2 while Dune
+    /// and "Dune 1984" stay two films. When it didn't find one of them, the titles decide.
     /// </remarks>
-    public static bool IsTakenByAnother(Night night, string participantId, string suggestion)
+    /// <param name="tmdbId">TMDB's id for the suggestion, or 0 when it wasn't found.</param>
+    public static bool IsTakenByAnother(Night night, string participantId, string suggestion, int tmdbId = 0)
     {
         var key = TitleKey(suggestion);
 
         return key.Length > 0 && night.Participants
-            .Where(participant => participant.ParticipantId != participantId)
-            .Any(participant => TitleKey(participant.Suggestion) == key);
+            .Where(participant => participant.ParticipantId != participantId && participant.Suggestion.Length > 0)
+            .Any(participant => tmdbId > 0 && participant.TmdbId > 0
+                ? participant.TmdbId == tmdbId
+                : TitleKey(participant.Suggestion) == key);
     }
 
     /// <summary>
@@ -138,6 +144,25 @@ internal static class NightProgress
 
         return string.Join(' ', words);
     }
+
+    /// <summary>A participant's movie as people read it: "Alien (1979)", or just the title when the year is unknown.</summary>
+    public static string DisplayTitle(Participant suggester) =>
+        suggester.MovieYear.Length > 0
+            ? $"{suggester.Suggestion} ({suggester.MovieYear})"
+            : suggester.Suggestion;
+
+    /// <summary>
+    /// The full address of a TMDB poster, or empty for none. <paramref name="width"/> is one of TMDB's
+    /// sizes: "w92", "w154", "w185", "w342", "w500".
+    /// </summary>
+    public static string PosterUrl(string posterPath, string width) =>
+        posterPath.Length > 0
+            ? $"https://image.tmdb.org/t/p/{width}{posterPath}"
+            : string.Empty;
+
+    /// <summary>The participant who suggested a movie, by the movie's id.</summary>
+    public static Participant SuggesterOf(Night night, string movieId) =>
+        night.Participants.FirstOrDefault(participant => participant.ParticipantId == movieId) ?? Night.EmptyParticipant;
 
     /// <summary>The title of the movie a participant suggested, by its id.</summary>
     public static string TitleOf(Night night, string movieId) =>

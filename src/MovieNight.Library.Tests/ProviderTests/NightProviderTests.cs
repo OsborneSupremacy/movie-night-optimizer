@@ -19,7 +19,7 @@ public class NightProviderTests
     [Fact]
     public async Task SaveSuggestionAsync_ChecksTheNightIsStillCollecting()
     {
-        await _sut.SaveSuggestionAsync(NightId, "a", "Alien");
+        await _sut.SaveSuggestionAsync(NightId, "a", "Alien", MovieMatch.None);
 
         var items = CapturedTransaction().TransactItems;
 
@@ -28,7 +28,21 @@ public class NightProviderTests
         items[0].ConditionCheck.ExpressionAttributeValues[":phase"].S.Should().Be("Collecting");
         items[1].Update.Key["SK"].S.Should().Be("PARTICIPANT#a");
         items[1].Update.ConditionExpression.Should().Be("attribute_exists(PK)");
-        items[1].Update.ExpressionAttributeValues[":value"].S.Should().Be("Alien");
+        items[1].Update.ExpressionAttributeValues[":title"].S.Should().Be("Alien");
+    }
+
+    [Fact]
+    public async Task SaveSuggestionAsync_WithoutAMatch_ClearsAnyEarlierMoviesDetails()
+    {
+        // Otherwise a new suggestion TMDB couldn't find would keep the old one's poster.
+        await _sut.SaveSuggestionAsync(NightId, "a", "Some home video", MovieMatch.None);
+
+        var update = CapturedTransaction().TransactItems[1].Update;
+
+        update.UpdateExpression.Should().Be("SET Suggestion = :title, TmdbId = :tmdbId, MovieYear = :year, PosterPath = :poster");
+        update.ExpressionAttributeValues[":tmdbId"].N.Should().Be("0");
+        update.ExpressionAttributeValues[":year"].S.Should().BeEmpty();
+        update.ExpressionAttributeValues[":poster"].S.Should().BeEmpty();
     }
 
     [Fact]
@@ -48,7 +62,7 @@ public class NightProviderTests
         _dynamoDb.TransactWriteItemsAsync(Arg.Any<TransactWriteItemsRequest>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(Cancelled("ConditionalCheckFailed", "None"));
 
-        var saved = await _sut.SaveSuggestionAsync(NightId, "a", "Alien");
+        var saved = await _sut.SaveSuggestionAsync(NightId, "a", "Alien", MovieMatch.None);
 
         saved.Should().BeFalse();
         await _dynamoDb.Received(1).TransactWriteItemsAsync(Arg.Any<TransactWriteItemsRequest>(), Arg.Any<CancellationToken>());
@@ -64,7 +78,7 @@ public class NightProviderTests
                 _ => Task.FromResult(new TransactWriteItemsResponse())
             );
 
-        var saved = await _sut.SaveSuggestionAsync(NightId, "a", "Alien");
+        var saved = await _sut.SaveSuggestionAsync(NightId, "a", "Alien", MovieMatch.None);
 
         saved.Should().BeTrue();
         await _dynamoDb.Received(2).TransactWriteItemsAsync(Arg.Any<TransactWriteItemsRequest>(), Arg.Any<CancellationToken>());
@@ -76,7 +90,7 @@ public class NightProviderTests
         _dynamoDb.TransactWriteItemsAsync(Arg.Any<TransactWriteItemsRequest>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(Cancelled("TransactionConflict", "None"));
 
-        var saved = await _sut.SaveSuggestionAsync(NightId, "a", "Alien");
+        var saved = await _sut.SaveSuggestionAsync(NightId, "a", "Alien", MovieMatch.None);
 
         saved.Should().BeFalse();
         await _dynamoDb.Received(NightProvider.MaxTransactionAttempts)
@@ -161,7 +175,7 @@ public class NightProviderTests
     public async Task TryGetNightAsync_ReadsBackWhatIsStored()
     {
         var stored = Night(NightPhase.Ranking,
-            Person("a", "Alien", isOrganizer: true),
+            Person("a", "Alien", isOrganizer: true) with { TmdbId = 348, MovieYear = "1979", PosterPath = "/alien.jpg" },
             Person("b", "Big", false, "a"));
 
         _dynamoDb.QueryAsync(Arg.Any<QueryRequest>(), Arg.Any<CancellationToken>())
