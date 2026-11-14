@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 
 namespace MovieNight.Library.Services;
 
@@ -27,10 +27,19 @@ internal static class NightEmails
     public static string BuildLink(string siteUrl, string nightId, string token) =>
         $"{siteUrl.TrimEnd('/')}/night/{Uri.EscapeDataString(nightId)}#t={token}";
 
-    public static EmailContent Suggest(Night night, string organizerEmail, string link)
+    /// <summary>
+    /// The "don't email me again" link. The same token as the email's main link: it only ever
+    /// arrives in mail to this inbox, which is what makes it proof enough.
+    /// </summary>
+    public static string BuildStopLink(string siteUrl, string nightId, string token) =>
+        $"{siteUrl.TrimEnd('/')}/night/{Uri.EscapeDataString(nightId)}/stop#t={token}";
+
+    private const string StopText = "Don't want email from Movie Night Optimizer? Stop it for good";
+
+    public static EmailContent Suggest(Night night, string organizerEmail, string link, string stopLink)
     {
         var date = FormatDate(night.Date);
-        var invitation = $"{organizerEmail} is planning a movie night for {date}, and wants your pick.";
+        var invitation = $"{organizerEmail} added your address to a movie night on {date}, and wants your pick.";
         const string Ask = "Suggest one movie. When everyone has, you'll get an email to rank the others' picks.";
 
         return new EmailContent
@@ -40,13 +49,14 @@ internal static class NightEmails
                 "What should we watch?",
                 [Encode(invitation), Encode(Ask)],
                 "Suggest a movie",
-                link
+                link,
+                stopLink
             ),
-            TextBody = $"{invitation}\n\n{Ask}\n\nSuggest a movie: {link}\n"
+            TextBody = $"{invitation}\n\n{Ask}\n\nSuggest a movie: {link}\n" + TextFooter(stopLink)
         };
     }
 
-    public static EmailContent Rank(Night night, string link)
+    public static EmailContent Rank(Night night, string link, string stopLink)
     {
         var date = FormatDate(night.Date);
         var count = NightProgress.Suggesters(night).Count;
@@ -60,13 +70,14 @@ internal static class NightEmails
                 "The suggestions are in",
                 [Encode(summary), Encode(Ask)],
                 "Rank the movies",
-                link
+                link,
+                stopLink
             ),
-            TextBody = $"{summary}\n\n{Ask}\n\nRank the movies: {link}\n"
+            TextBody = $"{summary}\n\n{Ask}\n\nRank the movies: {link}\n" + TextFooter(stopLink)
         };
     }
 
-    public static EmailContent Results(Night night, string link)
+    public static EmailContent Results(Night night, string link, string stopLink)
     {
         var date = FormatDate(night.Date);
         var scores = NightProgress.Score(night);
@@ -78,8 +89,8 @@ internal static class NightEmails
             return new EmailContent
             {
                 Subject = $"No movie for {date}",
-                HtmlBody = Layout("No movie this time", [Encode(Nothing)], "See the night", link),
-                TextBody = $"{Nothing}\n\nSee the night: {link}\n"
+                HtmlBody = Layout("No movie this time", [Encode(Nothing)], "See the night", link, stopLink),
+                TextBody = $"{Nothing}\n\nSee the night: {link}\n" + TextFooter(stopLink)
             };
         }
 
@@ -105,13 +116,18 @@ internal static class NightEmails
                 [Encode($"Everyone's rankings are in for {date}. Here's how the movies finished:")],
                 "See the results",
                 link,
+                stopLink,
                 list
             ),
             TextBody = $"{headline}\n\nEveryone's rankings are in for {date}. Here's how the movies finished:\n\n"
                 + string.Join("\n", lines)
                 + $"\n\nSee the results: {link}\n"
+                + TextFooter(stopLink)
         };
     }
+
+    private static string TextFooter(string stopLink) =>
+        $"\nThis link is yours alone. Please don't forward it.\n{StopText}: {stopLink}\n";
 
     private static string FormatDate(DateOnly date) => date.ToString("dddd, MMMM d", English);
 
@@ -126,6 +142,7 @@ internal static class NightEmails
         IEnumerable<string> paragraphs,
         string buttonText,
         string link,
+        string stopLink,
         string extraHtml = ""
     ) =>
         "<!doctype html><html><body style=\"margin:0;padding:24px;background:#f4f2f7;"
@@ -139,7 +156,9 @@ internal static class NightEmails
         + $"<p style=\"margin:24px 0;\"><a href=\"{Encode(link)}\" style=\"display:inline-block;background:#f5c518;"
         + "color:#1a1500;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:8px;\">"
         + $"{Encode(buttonText)}</a></p>"
-        + "<p style=\"font-size:13px;line-height:1.5;color:#6b6478;margin:0;\">This link is yours alone. "
+        + "<p style=\"font-size:13px;line-height:1.5;color:#6b6478;margin:0 0 8px;\">This link is yours alone. "
         + "Please don't forward it.</p>"
+        + "<p style=\"font-size:13px;line-height:1.5;color:#6b6478;margin:0;\">"
+        + $"<a href=\"{Encode(stopLink)}\" style=\"color:#6b6478;\">{Encode(StopText)}</a>.</p>"
         + "</div></body></html>";
 }

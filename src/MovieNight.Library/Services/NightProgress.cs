@@ -1,4 +1,4 @@
-namespace MovieNight.Library.Services;
+﻿namespace MovieNight.Library.Services;
 
 /// <summary>
 /// The rules of a night that depend only on what is in it: who has answered, who ranks what,
@@ -35,11 +35,16 @@ internal static class NightProgress
 
     /// <summary>Whether this participant still owes the night a ranking.</summary>
     public static bool NeedsToRank(Night night, Participant participant) =>
-        participant.Ranking.Count == 0 && MoviesToRank(night, participant.ParticipantId).Count > 0;
+        !participant.OptedOut
+        && participant.Ranking.Count == 0
+        && MoviesToRank(night, participant.ParticipantId).Count > 0;
 
-    /// <summary>Whether this participant has answered the round the night is in.</summary>
+    /// <summary>
+    /// Whether this participant has answered the round the night is in. Somebody who has opted out
+    /// of email counts as answered, because nobody can reach them to ask.
+    /// </summary>
     public static bool HasAnswered(Night night, Participant participant) =>
-        night.Phase switch
+        participant.OptedOut || night.Phase switch
         {
             NightPhase.Collecting => participant.Suggestion.Length > 0,
             NightPhase.Ranking => !NeedsToRank(night, participant),

@@ -1,4 +1,4 @@
-namespace MovieNight.Library.Messaging;
+﻿namespace MovieNight.Library.Messaging;
 
 public record ErrorResponse
 {
@@ -27,6 +27,12 @@ public record CreateNightRequest
 public record CreateNightResponse
 {
     public required string NightId { get; init; }
+
+    /// <summary>Everyone emailed a link, the organizer included.</summary>
+    public required int InvitedCount { get; init; }
+
+    /// <summary>Guests left out because they have asked never to be emailed.</summary>
+    public required int OptedOutCount { get; init; }
 }
 
 /// <summary>Who is asking about which night: the path and the token header, for a GET or a bodiless POST.</summary>

@@ -53,6 +53,16 @@ public class NightProgressTests
     }
 
     [Fact]
+    public void IsRoundComplete_OnlySomebodyWhoOptedOutIsLeft_IsTrue()
+    {
+        // Nobody can email them, so no round can wait on them.
+        var night = Night(NightPhase.Collecting, Person("a", "Alien"), Person("b") with { OptedOut = true });
+
+        NightProgress.IsRoundComplete(night).Should().BeTrue();
+        NightProgress.NeedsToRank(night with { Phase = NightPhase.Ranking }, night.Participants[1]).Should().BeFalse();
+    }
+
+    [Fact]
     public void IsRoundComplete_EveryoneRanked_IsTrue()
     {
         var night = Night(NightPhase.Ranking,

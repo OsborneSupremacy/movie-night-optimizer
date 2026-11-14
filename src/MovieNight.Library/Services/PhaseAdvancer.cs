@@ -1,4 +1,4 @@
-namespace MovieNight.Library.Services;
+﻿namespace MovieNight.Library.Services;
 
 /// <summary>
 /// Closes the round a night is in and sends everyone the email for the next one.
@@ -67,14 +67,16 @@ internal class PhaseAdvancer
         var emails = advancedNight.Participants
             .Select(participant =>
             {
-                var link = NightEmails.BuildLink(_siteUrl, advancedNight.NightId, tokens[participant.ParticipantId]);
+                var token = tokens[participant.ParticipantId];
+                var link = NightEmails.BuildLink(_siteUrl, advancedNight.NightId, token);
+                var stopLink = NightEmails.BuildStopLink(_siteUrl, advancedNight.NightId, token);
 
                 return new OutgoingEmail
                 {
                     To = participant.Email,
                     Content = next == NightPhase.Ranking
-                        ? NightEmails.Rank(advancedNight, link)
-                        : NightEmails.Results(advancedNight, link)
+                        ? NightEmails.Rank(advancedNight, link, stopLink)
+                        : NightEmails.Results(advancedNight, link, stopLink)
                 };
             })
             .ToImmutableList();

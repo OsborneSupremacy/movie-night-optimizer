@@ -126,6 +126,29 @@ public class NightProviderTests
     }
 
     [Fact]
+    public async Task TryReserveApplicationSlotAsync_CountsTheWholeAppsDayUpToItsLimit()
+    {
+        await _sut.TryReserveApplicationSlotAsync();
+
+        var update = _dynamoDb.ReceivedCalls()
+            .Select(call => call.GetArguments()[0])
+            .OfType<UpdateItemRequest>()
+            .Single();
+
+        update.Key["PK"].S.Should().Be($"APPDAY#{DateTimeOffset.UtcNow.UtcDateTime:yyyy-MM-dd}");
+        update.ExpressionAttributeValues[":limit"].N.Should().Be(NightProvider.ApplicationDailyNightLimit.ToString());
+    }
+
+    [Fact]
+    public void DoNotEmailKey_IsAHashOfTheInboxNotTheAddress()
+    {
+        var key = DoNotEmailProvider.KeyFor("Ben+movies@Example.com");
+
+        key.Should().Be(DoNotEmailProvider.KeyFor("ben@example.com"));
+        key.Should().NotContain("ben");
+    }
+
+    [Fact]
     public async Task TryReserveOrganizerSlotAsync_DayHasHadItsFill_Refuses()
     {
         _dynamoDb.UpdateItemAsync(Arg.Any<UpdateItemRequest>(), Arg.Any<CancellationToken>())

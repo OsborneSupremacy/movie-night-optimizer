@@ -1,6 +1,7 @@
 import { Link, Route, Routes } from 'react-router-dom'
 import CreateNight from './pages/CreateNight.tsx'
 import Night from './pages/Night.tsx'
+import StopEmails from './pages/StopEmails.tsx'
 
 export default function App() {
   return (
@@ -12,6 +13,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<CreateNight />} />
           <Route path="/night/:nightId" element={<Night />} />
+          <Route path="/night/:nightId/stop" element={<StopEmails />} />
           <Route path="*" element={<p>There's nothing at this address.</p>} />
         </Routes>
       </main>

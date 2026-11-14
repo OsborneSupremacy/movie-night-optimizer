@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 
 namespace MovieNight.Library.Providers;
 
@@ -22,6 +22,13 @@ internal class NightProvider
     /// </remarks>
     internal const int DailyNightLimit = 3;
 
+    /// <summary>The most nights the whole application starts in a UTC day.</summary>
+    /// <remarks>
+    /// Far above what the families using it need, and far below what would trouble the SES
+    /// account it shares: 50 nights of 8 people is 1,200 emails at most.
+    /// </remarks>
+    internal const int ApplicationDailyNightLimit = 50;
+
     /// <summary>How many times a transaction that lost a race with another is tried in all.</summary>
     internal const int MaxTransactionAttempts = 4;
 
@@ -30,6 +37,8 @@ internal class NightProvider
     private const string ParticipantSortKeyPrefix = "PARTICIPANT#";
 
     private const string OrganizerDaySortKey = "ORGANIZERDAY";
+
+    private const string ApplicationDaySortKey = "APPDAY";
 
     private const string DateFormat = "yyyy-MM-dd";
 
@@ -51,13 +60,31 @@ internal class NightProvider
     /// Counts one more night against the organizer's inbox for the UTC day, unless the day has had
     /// its fill.
     /// </summary>
+    /// <param name="mailboxKey">The organizer's address as <see cref="StringExtensions.ToMailboxKey"/> gives it.</param>
+    public Task<bool> TryReserveOrganizerSlotAsync(string mailboxKey) =>
+        TryCountTodayAsync($"{OrganizerDaySortKey}#{mailboxKey}", OrganizerDaySortKey, DailyNightLimit);
+
+    /// <summary>
+    /// Counts one more night against the whole application's UTC day, unless the day has had its
+    /// fill.
+    /// </summary>
     /// <remarks>
-    /// One item per inbox per day, with the date in its key, so a new day is a new item and never
+    /// A circuit breaker rather than a limit anybody should meet. The per-organizer limit is keyed
+    /// on an address the requester types, so somebody inventing addresses gets three nights for
+    /// each. This caps what they can make the shared SES account send in a day, whatever they type.
+    /// </remarks>
+    public Task<bool> TryReserveApplicationSlotAsync() =>
+        TryCountTodayAsync(ApplicationDaySortKey, ApplicationDaySortKey, ApplicationDailyNightLimit);
+
+    /// <summary>
+    /// Adds one to a per-UTC-day counter, unless it has reached <paramref name="limit"/>.
+    /// </summary>
+    /// <remarks>
+    /// One item per counter per day, with the date in its key, so a new day is a new item and never
     /// needs resetting. The count and the check are one conditional update, so two requests racing
     /// cannot both take the last slot.
     /// </remarks>
-    /// <param name="mailboxKey">The organizer's address as <see cref="StringExtensions.ToMailboxKey"/> gives it.</param>
-    public async Task<bool> TryReserveOrganizerSlotAsync(string mailboxKey)
+    private async Task<bool> TryCountTodayAsync(string keyPrefix, string sortKey, int limit)
     {
         var today = DateTimeOffset.UtcNow.UtcDateTime.Date;
 
@@ -69,8 +96,8 @@ internal class NightProvider
             TableName = _tableName,
             Key = new Dictionary<string, AttributeValue>
             {
-                ["PK"] = new() { S = $"{OrganizerDaySortKey}#{mailboxKey}#{today.ToString(DateFormat, CultureInfo.InvariantCulture)}" },
-                ["SK"] = new() { S = OrganizerDaySortKey }
+                ["PK"] = new() { S = $"{keyPrefix}#{today.ToString(DateFormat, CultureInfo.InvariantCulture)}" },
+                ["SK"] = new() { S = sortKey }
             },
             UpdateExpression = "ADD NightCount :one SET #ttl = if_not_exists(#ttl, :ttl)",
             ConditionExpression = "attribute_not_exists(NightCount) OR NightCount < :limit",
@@ -81,7 +108,7 @@ internal class NightProvider
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
                 [":one"] = new() { N = "1" },
-                [":limit"] = new() { N = DailyNightLimit.ToString(CultureInfo.InvariantCulture) },
+                [":limit"] = new() { N = limit.ToString(CultureInfo.InvariantCulture) },
                 [":ttl"] = new() { N = expiresAt.ToString(CultureInfo.InvariantCulture) }
             }
         };
@@ -169,6 +196,7 @@ internal class NightProvider
                     ? [.. tokenHashes.SS]
                     : [],
                 IsOrganizer = item.TryGetValue("IsOrganizer", out var isOrganizer) && isOrganizer.BOOL == true,
+                OptedOut = item.TryGetValue("OptedOut", out var optedOut) && optedOut.BOOL == true,
                 Suggestion = GetString(item, "Suggestion"),
                 Ranking = item.TryGetValue("Ranking", out var ranking) && ranking.L is not null
                     ? ranking.L.Select(value => value.S ?? string.Empty).ToImmutableList()
@@ -185,6 +213,35 @@ internal class NightProvider
         };
 
         return (true, night);
+    }
+
+    /// <summary>
+    /// Marks a participant as having asked never to be emailed again, in whatever phase the night
+    /// is in. False if the participant isn't in the night.
+    /// </summary>
+    public async Task<bool> MarkOptedOutAsync(string nightId, string participantId)
+    {
+        try
+        {
+            await _dynamoDbClient
+                .UpdateItemAsync(new UpdateItemRequest
+                {
+                    TableName = _tableName,
+                    Key = BuildKey(nightId, $"{ParticipantSortKeyPrefix}{participantId}"),
+                    UpdateExpression = "SET OptedOut = :true",
+                    ConditionExpression = "attribute_exists(PK)",
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                    {
+                        [":true"] = new() { BOOL = true }
+                    }
+                })
+                .ConfigureAwait(false);
+            return true;
+        }
+        catch (ConditionalCheckFailedException)
+        {
+            return false;
+        }
     }
 
     /// <summary>

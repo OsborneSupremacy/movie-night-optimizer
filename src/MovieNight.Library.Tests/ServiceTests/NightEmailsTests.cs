@@ -6,6 +6,8 @@ public class NightEmailsTests
 {
     private const string Link = "https://movienight.example.com/night/night1#t=abc";
 
+    private const string StopLink = "https://movienight.example.com/night/night1/stop#t=abc";
+
     [Fact]
     public void BuildLink_PutsTheTokenInTheFragment() =>
         NightEmails.BuildLink("https://movienight.example.com/", "night1", "abc")
@@ -14,7 +16,7 @@ public class NightEmailsTests
     [Fact]
     public void Suggest_HasTheLinkInBothParts()
     {
-        var email = NightEmails.Suggest(Night(NightPhase.Collecting, Person("a")), "a@example.com", Link);
+        var email = NightEmails.Suggest(Night(NightPhase.Collecting, Person("a")), "a@example.com", Link, StopLink);
 
         email.HtmlBody.Should().Contain(Link);
         email.TextBody.Should().Contain(Link);
@@ -24,7 +26,7 @@ public class NightEmailsTests
     [Fact]
     public void Suggest_EncodesTheOrganizersAddressInTheHtml()
     {
-        var email = NightEmails.Suggest(Night(NightPhase.Collecting, Person("a")), "<b>x</b>@example.com", Link);
+        var email = NightEmails.Suggest(Night(NightPhase.Collecting, Person("a")), "<b>x</b>@example.com", Link, StopLink);
 
         email.HtmlBody.Should().NotContain("<b>x</b>");
         email.HtmlBody.Should().Contain("&lt;b&gt;x&lt;/b&gt;");
@@ -38,7 +40,7 @@ public class NightEmailsTests
             Person("a", "<script>alert(1)</script>", false, "b"),
             Person("b", "Big", false, "a"));
 
-        var email = NightEmails.Results(night, Link);
+        var email = NightEmails.Results(night, Link, StopLink);
 
         email.HtmlBody.Should().NotContain("<script>");
         email.TextBody.Should().Contain("<script>alert(1)</script>");
@@ -52,7 +54,7 @@ public class NightEmailsTests
             Person("b", "Big", false, "a"),
             Person("c", "", false, "b", "a"));
 
-        NightEmails.Results(night, Link).Subject.Should().Be("Movie night Saturday, November 14: Big");
+        NightEmails.Results(night, Link, StopLink).Subject.Should().Be("Movie night Saturday, November 14: Big");
     }
 
     [Fact]
@@ -60,7 +62,7 @@ public class NightEmailsTests
     {
         var night = Night(NightPhase.Done, Person("a"), Person("b"));
 
-        NightEmails.Results(night, Link).Subject.Should().Be("No movie for Saturday, November 14");
+        NightEmails.Results(night, Link, StopLink).Subject.Should().Be("No movie for Saturday, November 14");
     }
 
     [Fact]
@@ -70,10 +72,31 @@ public class NightEmailsTests
             .Should().Be("[TEST for one@example.com] Pick a movie for Saturday, November 14");
 
     [Fact]
+    public void BuildStopLink_PutsTheTokenInTheFragment() =>
+        NightEmails.BuildStopLink("https://movienight.example.com", "night1", "abc").Should().Be(StopLink);
+
+    [Fact]
+    public void EveryEmail_HasTheStopLinkInBothParts()
+    {
+        var collecting = Night(NightPhase.Collecting, Person("a", "Alien"), Person("b", "Big"));
+        var done = Night(NightPhase.Done, Person("a", "Alien", false, "b"), Person("b", "Big", false, "a"));
+
+        EmailContent[] emails =
+        [
+            NightEmails.Suggest(collecting, "a@example.com", Link, StopLink),
+            NightEmails.Rank(collecting, Link, StopLink),
+            NightEmails.Results(done, Link, StopLink),
+            NightEmails.Results(Night(NightPhase.Done, Person("a")), Link, StopLink)
+        ];
+
+        emails.Should().OnlyContain(email => email.HtmlBody.Contains(StopLink) && email.TextBody.Contains(StopLink));
+    }
+
+    [Fact]
     public void Rank_CountsTheSuggestions()
     {
         var night = Night(NightPhase.Ranking, Person("a", "Alien"), Person("b", "Big"), Person("c", "Cars"));
 
-        NightEmails.Rank(night, Link).TextBody.Should().Contain("3 movies have been suggested");
+        NightEmails.Rank(night, Link, StopLink).TextBody.Should().Contain("3 movies have been suggested");
     }
 }

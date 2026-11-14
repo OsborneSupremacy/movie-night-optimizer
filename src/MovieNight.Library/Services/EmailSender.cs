@@ -16,6 +16,8 @@ internal class EmailSender
 
     private readonly ILogger<EmailSender> _logger;
 
+    private readonly DoNotEmailProvider _doNotEmailProvider;
+
     private readonly string _senderAddress;
 
     private readonly bool _liveMode;
@@ -23,9 +25,10 @@ internal class EmailSender
     private readonly string _testRecipient;
 
     // ReSharper disable once ConvertToPrimaryConstructor
-    public EmailSender(IAmazonSimpleEmailService sesClient, ILogger<EmailSender> logger)
+    public EmailSender(IAmazonSimpleEmailService sesClient, DoNotEmailProvider doNotEmailProvider, ILogger<EmailSender> logger)
     {
         _sesClient = sesClient ?? throw new ArgumentNullException(nameof(sesClient));
+        _doNotEmailProvider = doNotEmailProvider ?? throw new ArgumentNullException(nameof(doNotEmailProvider));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _senderAddress = EnvReader.GetStringValue("SENDER_ADDRESS");
         _liveMode = EnvReader.TryGetBooleanValue("LIVE_MODE", out var liveMode) && liveMode;
@@ -37,10 +40,18 @@ internal class EmailSender
     /// <summary>
     /// Sends one message to one person. Outside live mode it goes to the test recipient instead,
     /// with <see cref="TestModeSubject"/>, and is not sent at all if there is no test recipient.
+    /// Never sent to an address on the do-not-email list, in either mode.
     /// </summary>
+    /// <remarks>
+    /// The list is checked here, the one place mail leaves from, rather than by each caller, so no
+    /// new email can forget to.
+    /// </remarks>
     public async Task SendAsync(string to, string subject, string htmlBody, string textBody)
     {
         if(!_liveMode && string.IsNullOrWhiteSpace(_testRecipient))
+            return;
+
+        if(await _doNotEmailProvider.IsListedAsync(to).ConfigureAwait(false))
             return;
 
         var request = new SendEmailRequest

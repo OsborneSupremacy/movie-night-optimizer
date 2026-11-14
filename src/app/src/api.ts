@@ -53,6 +53,10 @@ export interface CreateNightRequest {
 
 export interface CreateNightResponse {
   nightId: string
+  /** Everyone emailed a link, the organizer included. */
+  invitedCount: number
+  /** Guests left out because they have asked never to be emailed. */
+  optedOutCount: number
 }
 
 export const createNight = (body: CreateNightRequest) =>
@@ -105,6 +109,10 @@ export const submitSuggestion = (nightId: string, token: string, suggestion: str
 /** Movie ids from NightView.toRank, best first. */
 export const submitRanking = (nightId: string, token: string, ranking: string[]) =>
   request<NightView>('POST', `${nightPath(nightId)}/ranking`, { token, body: { ranking } })
+
+/** The "don't email me again" link: lists this inbox for good and takes them out of the night. */
+export const optOut = (nightId: string, token: string) =>
+  request<void>('POST', `${nightPath(nightId)}/opt-out`, { token })
 
 /** Organizer only: closes the current round without waiting for everyone. */
 export const advanceNight = (nightId: string, token: string) =>

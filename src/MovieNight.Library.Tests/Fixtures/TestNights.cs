@@ -71,6 +71,9 @@ internal static class TestNights
                 ["IsOrganizer"] = new() { BOOL = participant.IsOrganizer }
             };
 
+            if(participant.OptedOut)
+                item["OptedOut"] = new() { BOOL = true };
+
             if(participant.Suggestion.Length > 0)
                 item["Suggestion"] = new() { S = participant.Suggestion };
 

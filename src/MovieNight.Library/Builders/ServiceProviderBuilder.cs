@@ -1,4 +1,4 @@
-using Amazon;
+﻿using Amazon;
 using Amazon.Extensions.NETCore.Setup;
 using Amazon.SimpleEmail;
 
@@ -48,6 +48,7 @@ internal static class ServiceProviderBuilder
     internal static IServiceCollection AddBusinessServices(this IServiceCollection services) =>
         services
             .AddSingleton<NightProvider>()
+            .AddSingleton<DoNotEmailProvider>()
             .AddSingleton<EmailSender>()
             .AddSingleton<NightReader>()
             .AddSingleton<PhaseAdvancer>()
@@ -57,5 +58,6 @@ internal static class ServiceProviderBuilder
             .AddKeyedSingleton<IApiGatewayHandler, GetNightService>("get /api/nights/{nightid}")
             .AddKeyedSingleton<IApiGatewayHandler, SubmitSuggestionService>("post /api/nights/{nightid}/suggestion")
             .AddKeyedSingleton<IApiGatewayHandler, SubmitRankingService>("post /api/nights/{nightid}/ranking")
-            .AddKeyedSingleton<IApiGatewayHandler, AdvanceNightService>("post /api/nights/{nightid}/advance");
+            .AddKeyedSingleton<IApiGatewayHandler, AdvanceNightService>("post /api/nights/{nightid}/advance")
+            .AddKeyedSingleton<IApiGatewayHandler, OptOutService>("post /api/nights/{nightid}/opt-out");
 }

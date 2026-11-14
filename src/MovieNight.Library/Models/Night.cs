@@ -1,4 +1,4 @@
-namespace MovieNight.Library.Models;
+﻿namespace MovieNight.Library.Models;
 
 /// <summary>
 /// Where a movie night is. It only ever moves forward.
@@ -32,6 +32,12 @@ public record Participant
     public required ImmutableList<string> TokenHashes { get; init; }
 
     public bool IsOrganizer { get; init; }
+
+    /// <summary>
+    /// Whether they have asked never to be emailed again. They stay in the night, and a movie they
+    /// suggested stays in the running, but no round waits on them and no mail goes to them.
+    /// </summary>
+    public bool OptedOut { get; init; }
 
     /// <summary>The movie they suggested, or empty until they have.</summary>
     public string Suggestion { get; init; } = string.Empty;

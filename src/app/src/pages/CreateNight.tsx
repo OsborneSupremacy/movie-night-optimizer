@@ -18,7 +18,11 @@ function parseEmails(text: string): string[] {
     .filter((email) => email.length > 0)
 }
 
-type Status = { kind: 'idle' } | { kind: 'sending' } | { kind: 'sent' } | { kind: 'failed'; message: string }
+type Status =
+  | { kind: 'idle' }
+  | { kind: 'sending' }
+  | { kind: 'sent'; invited: number; optedOut: number }
+  | { kind: 'failed'; message: string }
 
 export default function CreateNight() {
   const [organizerEmail, setOrganizerEmail] = useState('')
@@ -30,12 +34,12 @@ export default function CreateNight() {
     event.preventDefault()
     setStatus({ kind: 'sending' })
     try {
-      await createNight({
+      const created = await createNight({
         organizerEmail: organizerEmail.trim(),
         participantEmails: parseEmails(participants),
         date,
       })
-      setStatus({ kind: 'sent' })
+      setStatus({ kind: 'sent', invited: created.invitedCount, optedOut: created.optedOutCount })
     } catch (error) {
       setStatus({
         kind: 'failed',
@@ -50,9 +54,15 @@ export default function CreateNight() {
         <p className="eyebrow">Movie night · {formatDate(date)}</p>
         <h1>Check your inbox</h1>
         <p>
-          All {parseEmails(participants).length + 1} of you, you included, have been emailed a link to suggest a
-          movie. When everyone has, you'll all get a link to rank them.
+          All {status.invited} of you, you included, have been emailed a link to suggest a movie. When everyone has,
+          you'll all get a link to rank them.
         </p>
+        {status.optedOut > 0 && (
+          <p>
+            {status.optedOut === 1 ? 'One address you added has' : `${status.optedOut} addresses you added have`} asked
+            not to get email from Movie Night Optimizer, so {status.optedOut === 1 ? 'it was' : 'they were'} left out.
+          </p>
+        )}
       </section>
     )
   }
