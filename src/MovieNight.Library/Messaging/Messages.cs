@@ -47,6 +47,12 @@ public record NightRequest
 public record SuggestionBody
 {
     public string Suggestion { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The TMDB id of the movie picked from the autocomplete list, or 0 when the title was typed.
+    /// Picking pins the exact film, which typing "Dune" can't.
+    /// </summary>
+    public int TmdbId { get; init; }
 }
 
 public record SubmitSuggestionRequest
@@ -56,6 +62,9 @@ public record SubmitSuggestionRequest
     public required string Token { get; init; }
 
     public required string Suggestion { get; init; }
+
+    /// <summary>The TMDB id picked from the autocomplete list, or 0.</summary>
+    public int TmdbId { get; init; }
 }
 
 /// <summary>The body of POST /api/nights/{nightId}/ranking.</summary>
@@ -180,4 +189,24 @@ public record ResultView
     public required int FirstPlaceVotes { get; init; }
 
     public required bool IsYours { get; init; }
+}
+
+/// <summary>GET /api/movies/search: a few movies that could be what somebody is typing.</summary>
+public record MovieSearchResponse
+{
+    public required ImmutableList<MovieOption> Movies { get; init; }
+}
+
+/// <summary>One movie in an autocomplete list.</summary>
+public record MovieOption
+{
+    public required int TmdbId { get; init; }
+
+    public required string Title { get; init; }
+
+    /// <summary>The year it came out, or empty when unknown.</summary>
+    public required string Year { get; init; }
+
+    /// <summary>A thumbnail poster from TMDB, or empty.</summary>
+    public required string PosterUrl { get; init; }
 }

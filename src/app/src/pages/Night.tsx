@@ -11,6 +11,7 @@ import {
   type MovieView,
   type NightView,
 } from '../api.ts'
+import MovieInput from '../components/MovieInput.tsx'
 import { formatDate } from '../dates.ts'
 import { readToken } from '../token.ts'
 
@@ -158,6 +159,7 @@ function Pending({ night, token, onChange }: PhaseProps) {
 function Collecting({ night, token, onChange }: PhaseProps) {
   const [editing, setEditing] = useState(!night.yourSuggestion)
   const [suggestion, setSuggestion] = useState(night.yourSuggestion)
+  const [picked, setPicked] = useState<{ tmdbId: number; label: string }>({ tmdbId: 0, label: '' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -166,7 +168,7 @@ function Collecting({ night, token, onChange }: PhaseProps) {
     setBusy(true)
     setError('')
     try {
-      const next = await submitSuggestion(night.nightId, token, suggestion.trim())
+      const next = await submitSuggestion(night.nightId, token, suggestion.trim(), picked.tmdbId)
       setEditing(false)
       onChange(next)
     } catch (caught) {
@@ -187,7 +189,7 @@ function Collecting({ night, token, onChange }: PhaseProps) {
             {night.yourYear && <p className="year">{night.yourYear}</p>}
             <Facts details={night.yourDetails} tmdbUrl={night.yourTmdbUrl} />
             <p>When everyone has suggested a movie, you'll get an email to rank the others' picks.</p>
-            {found && <p className="hint">Not the one you meant? Change it, and add the year.</p>}
+            {found && <p className="hint">Not the one you meant? Change it, and pick the right one from the list.</p>}
           </div>
         </div>
         <button type="button" className="secondary" onClick={() => setEditing(true)}>
@@ -204,14 +206,21 @@ function Collecting({ night, token, onChange }: PhaseProps) {
       <form onSubmit={handleSubmit}>
         <label>
           Your movie
-          <input
-            required
-            maxLength={100}
-            autoComplete="off"
+          <MovieInput
             value={suggestion}
-            onChange={(event) => setSuggestion(event.target.value)}
+            pickedId={picked.tmdbId}
+            onType={(value) => {
+              // Editing a pick makes it typed text again, to be looked up on submit like any other.
+              setSuggestion(value)
+              setPicked({ tmdbId: 0, label: '' })
+            }}
+            onPick={(movie) => {
+              setSuggestion(movie.title)
+              setPicked({ tmdbId: movie.tmdbId, label: movie.year ? `${movie.title} (${movie.year})` : movie.title })
+            }}
           />
         </label>
+        {picked.tmdbId > 0 && <p className="picked">✓ {picked.label}</p>}
         {error && (
           <p className="error" role="alert">
             {error}

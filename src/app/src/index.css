@@ -329,3 +329,60 @@ button.icon:disabled {
 .guest-list li {
   margin-bottom: 0.25rem;
 }
+
+.movie-input {
+  position: relative;
+}
+
+.movie-options {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.4);
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+.movie-options li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.35rem;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.movie-options li.active,
+.movie-options li:hover {
+  background: var(--background);
+}
+
+.option-poster {
+  flex: none;
+  width: 1.75rem;
+  height: 2.625rem;
+  border-radius: 0.25rem;
+  object-fit: cover;
+  background: var(--background);
+}
+
+.option-poster.poster-missing {
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+}
+
+.picked {
+  margin: -0.75rem 0 0;
+  color: var(--accent);
+  font-size: 0.9rem;
+}

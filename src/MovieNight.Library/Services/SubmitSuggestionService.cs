@@ -52,7 +52,8 @@ internal class SubmitSuggestionService : IApiGatewayHandler
             {
                 NightId = request.GetPathParameter("nightId"),
                 Token = request.GetParticipantToken(),
-                Suggestion = body.Value.Suggestion.TrimNullSafe()
+                Suggestion = body.Value.Suggestion.TrimNullSafe(),
+                TmdbId = Math.Max(body.Value.TmdbId, 0)
             },
             ExecuteAsync
         );
@@ -70,15 +71,25 @@ internal class SubmitSuggestionService : IApiGatewayHandler
         if(night.Phase != NightPhase.Collecting)
             return new Result<NightView>(new InvalidOperationException(ClosedMessage), HttpStatusCode.Conflict);
 
-        // TMDB isn't asked about a title somebody already typed: the answer is no either way.
-        if(NightProgress.IsTakenByAnother(night, participant.ParticipantId, request.Suggestion))
+        var picked = request.TmdbId > 0;
+
+        // TMDB isn't asked about a title somebody already typed: the answer is no either way. A
+        // movie picked from the list skips this, because its TMDB id decides: "Dune" picked as the
+        // 1984 film isn't the 2021 one somebody else suggested.
+        if(!picked && NightProgress.IsTakenByAnother(night, participant.ParticipantId, request.Suggestion))
             return new Result<NightView>(new InvalidOperationException(TakenMessage), HttpStatusCode.Conflict);
 
-        // Never fails: with no match the suggestion is saved as typed, as if TMDB didn't exist.
-        var match = await _movieLookup.FindAsync(request.Suggestion).ConfigureAwait(false);
+        // Never fails: with no match the suggestion is saved as typed, as if TMDB didn't exist. A
+        // pick is fetched by its id. If that fails it isn't searched for again, which would only
+        // double the wait while TMDB is struggling; the picked title is TMDB's own anyway.
+        var match = picked
+            ? await _movieLookup.FindByIdAsync(request.TmdbId).ConfigureAwait(false)
+            : await _movieLookup.FindAsync(request.Suggestion).ConfigureAwait(false);
         var title = match.IsFound ? match.Title : request.Suggestion;
 
-        if(match.IsFound && NightProgress.IsTakenByAnother(night, participant.ParticipantId, title, match.TmdbId))
+        if(match.IsFound
+            ? NightProgress.IsTakenByAnother(night, participant.ParticipantId, title, match.TmdbId)
+            : picked && NightProgress.IsTakenByAnother(night, participant.ParticipantId, title))
             return new Result<NightView>(new InvalidOperationException(TakenMessage), HttpStatusCode.Conflict);
 
         var saved = await _nightProvider

@@ -289,6 +289,80 @@ public class TmdbMovieLookupTests
     }
 
     [Fact]
+    public async Task SearchAsync_OffersTmdbsResultsInItsOrderUpToTheLimit()
+    {
+        var many = Enumerable.Range(1, 10).Select(id => Raw(id, $"Toy Story {id}", "1995-11-22")).ToArray();
+        var (lookup, handler) = Build((_, _) => Task.FromResult(FakeHttpHandler.Json(Page(many))));
+
+        var search = await lookup.SearchAsync("toy st");
+
+        search.Succeeded.Should().BeTrue();
+        search.Movies.Select(movie => movie.TmdbId).Should().Equal(1, 2, 3, 4, 5, 6);
+        search.Movies.Should().OnlyContain(movie => movie.Details == MovieDetails.Empty, "the list needs no details, so it asks for none");
+        handler.Requests.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task SearchAsync_NothingMatches_SucceedsWithNoMovies()
+    {
+        var (lookup, _) = Build((_, _) => Task.FromResult(FakeHttpHandler.Json(Page())));
+
+        var search = await lookup.SearchAsync("qwxzv");
+
+        search.Succeeded.Should().BeTrue();
+        search.Movies.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.TooManyRequests)]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    public async Task SearchAsync_TmdbFails_IsUnavailableRatherThanEmpty(HttpStatusCode status)
+    {
+        // Unavailable is what tells the endpoint not to let CloudFront cache the empty answer.
+        var (lookup, _) = Build((_, _) => Task.FromResult(FakeHttpHandler.Json("{}", status)));
+
+        (await lookup.SearchAsync("alien")).Should().Be(MovieSearch.Unavailable);
+    }
+
+    [Fact]
+    public async Task SearchAsync_NoToken_IsUnavailableWithoutCallingTmdb()
+    {
+        var (lookup, handler) = Build((_, _) => Task.FromResult(FakeHttpHandler.Json(Page())), token: "");
+
+        (await lookup.SearchAsync("alien")).Should().Be(MovieSearch.Unavailable);
+        handler.Requests.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task FindByIdAsync_ReadsTheMovieAndItsDetailsInOneRequest()
+    {
+        const string dune1984 = """
+            { "id": 841, "title": "Dune", "release_date": "1984-12-14", "poster_path": "/dune84.jpg", "runtime": 137,
+              "genres": [ { "name": "Science Fiction" } ] }
+            """;
+        var (lookup, handler) = Build((_, _) => Task.FromResult(FakeHttpHandler.Json(dune1984)));
+
+        var match = await lookup.FindByIdAsync(841);
+
+        match.Should().BeEquivalentTo(new MovieMatch
+        {
+            TmdbId = 841, Title = "Dune", Year = "1984", PosterPath = "/dune84.jpg",
+            Details = MovieDetails.Empty with { RuntimeMinutes = 137, Genres = ["Science Fiction"] }
+        });
+        handler.Requests.Single().RequestUri!.AbsolutePath.Should().EndWith("/movie/841");
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.TooManyRequests)]
+    public async Task FindByIdAsync_TmdbFails_IsNone(HttpStatusCode status)
+    {
+        var (lookup, _) = Build((_, _) => Task.FromResult(FakeHttpHandler.Json("{}", status)));
+
+        (await lookup.FindByIdAsync(841)).Should().Be(MovieMatch.None);
+    }
+
+    [Fact]
     public async Task TokenSource_ReadsTheSecretOnceAndKeepsIt()
     {
         Environment.SetEnvironmentVariable("TMDB_SECRET_ID", "movienight/tmdb");

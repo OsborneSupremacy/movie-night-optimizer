@@ -62,6 +62,37 @@ resource "aws_cloudfront_response_headers_policy" "security" {
   }
 }
 
+# Autocomplete answers, kept for a day and keyed on the search text alone, so the same few letters
+# typed by anybody are answered here without reaching the API, its rate limit or TMDB. The API marks
+# a TMDB failure no-store, which this honours, so an outage is never cached as "nothing matched".
+resource "aws_cloudfront_cache_policy" "movie_search" {
+  name        = "movienight-movie-search"
+  comment     = "Movie Night Optimizer autocomplete, keyed on q"
+  min_ttl     = 0
+  default_ttl = 86400
+  max_ttl     = 86400
+
+  parameters_in_cache_key_and_forwarded_to_origin {
+    enable_accept_encoding_brotli = true
+    enable_accept_encoding_gzip   = true
+
+    query_strings_config {
+      query_string_behavior = "whitelist"
+      query_strings {
+        items = ["q"]
+      }
+    }
+
+    headers_config {
+      header_behavior = "none"
+    }
+
+    cookies_config {
+      cookie_behavior = "none"
+    }
+  }
+}
+
 locals {
   s3_origin_id  = "S3-${aws_s3_bucket.frontend.id}"
   api_origin_id = "API-${aws_apigatewayv2_api.movienight.id}"
@@ -107,6 +138,19 @@ resource "aws_cloudfront_distribution" "site" {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.spa_router.arn
     }
+  }
+
+  # Autocomplete. Listed before /api/* because CloudFront takes the first behavior that matches.
+  ordered_cache_behavior {
+    path_pattern               = "/api/movies/search"
+    allowed_methods            = ["GET", "HEAD", "OPTIONS"]
+    cached_methods             = ["GET", "HEAD"]
+    target_origin_id           = local.api_origin_id
+    viewer_protocol_policy     = "https-only"
+    compress                   = true
+    cache_policy_id            = aws_cloudfront_cache_policy.movie_search.id
+    origin_request_policy_id   = data.aws_cloudfront_origin_request_policy.all_viewer_except_host_header.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security.id
   }
 
   # The API. Never cached, and the path reaches API Gateway unchanged, which is why every route

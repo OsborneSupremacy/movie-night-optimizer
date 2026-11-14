@@ -1,4 +1,4 @@
-namespace MovieNight.Library.Builders;
+﻿namespace MovieNight.Library.Builders;
 
 /// <summary>
 /// Builds HTTP API (payload format 2.0) responses.
@@ -16,13 +16,21 @@ internal static class ProxyResponseBuilder
         };
 
     public static APIGatewayHttpApiV2ProxyResponse Build(HttpStatusCode statusCode, string body) =>
+        Build(statusCode, body, "no-store");
+
+    /// <param name="cacheControl">
+    /// What CloudFront and the browser may keep. Every response says, so that nothing is cached by
+    /// accident: only a behavior with a caching policy honours anything but "no-store".
+    /// </param>
+    public static APIGatewayHttpApiV2ProxyResponse Build(HttpStatusCode statusCode, string body, string cacheControl) =>
         new()
         {
             StatusCode = (int)statusCode,
             Body = body,
             Headers = new Dictionary<string, string>
             {
-                ["Content-Type"] = "application/json"
+                ["Content-Type"] = "application/json",
+                ["Cache-Control"] = cacheControl
             }
         };
 }

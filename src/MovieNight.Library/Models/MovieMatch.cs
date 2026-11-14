@@ -66,3 +66,13 @@ public record MovieDetails
     /// <summary>A YouTube trailer, or empty.</summary>
     public required string TrailerUrl { get; init; }
 }
+
+/// <summary>The movies an autocomplete search found, and whether TMDB could be asked at all.</summary>
+public record MovieSearch
+{
+    public static readonly MovieSearch Unavailable = new() { Succeeded = false, Movies = [] };
+
+    public required bool Succeeded { get; init; }
+
+    public required ImmutableList<MovieMatch> Movies { get; init; }
+}

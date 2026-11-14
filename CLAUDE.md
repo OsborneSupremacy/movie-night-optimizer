@@ -27,6 +27,7 @@ Follow these in new code.
 - Only the hash of a participant's token is stored, never the token.
 - All mail leaves through `EmailSender`, which checks the do-not-email list. Never send mail any other way.
 - TMDB is an enhancement, never a dependency. Anything that goes wrong with it means saving the suggestion as typed.
+- `GET /api/movies/search` is public and cached at CloudFront for a day, keyed on `q` alone, so the same answer goes to everybody. Never put anything about a night or a person in it, and mark a failure `no-store` so it isn't cached.
 - The route list is written in two places that must agree: `local.api_routes` in `iac/terraform/locals.tf` and `ServiceProviderBuilder.AddBusinessServices`. The C# keys are the route key lower-cased.
 
 ## Working practices

@@ -465,6 +465,100 @@ public class NightServicesTests
         Transactions().Single().TransactItems[1].Update.ExpressionAttributeValues[":tmdbId"].N.Should().Be("841");
     }
 
+    private static SubmitSuggestionRequest Picked(string participantId, string title, int tmdbId) =>
+        Suggestion(participantId, title) with { TmdbId = tmdbId };
+
+    [Fact]
+    public async Task SubmitSuggestion_PickedFromTheList_IsFetchedByIdNotSearched()
+    {
+        GivenTheNightReads(Night(NightPhase.Collecting, Person("a"), Person("b")));
+        _movieLookup.FindByIdAsync(841).Returns(new MovieMatch { TmdbId = 841, Title = "Dune", Year = "1984", PosterPath = "/d.jpg" });
+
+        await SubmitSuggestionService().ExecuteAsync(Picked("a", "Dune", 841));
+
+        await _movieLookup.DidNotReceiveWithAnyArgs().FindAsync(default!);
+        var values = Transactions().Single().TransactItems[1].Update.ExpressionAttributeValues;
+        values[":tmdbId"].N.Should().Be("841");
+        values[":year"].S.Should().Be("1984");
+    }
+
+    [Fact]
+    public async Task SubmitSuggestion_PickingADifferentFilmWithATakenTitle_IsAllowed()
+    {
+        // "Dune" is taken as the 2021 film; the 1984 one picked from the list is a different movie.
+        var dune2021 = Person("a", "Dune") with { TmdbId = 438631, MovieYear = "2021" };
+        GivenTheNightReads(Night(NightPhase.Collecting, dune2021, Person("b")));
+        _movieLookup.FindByIdAsync(841).Returns(new MovieMatch { TmdbId = 841, Title = "Dune", Year = "1984", PosterPath = "" });
+
+        var result = await SubmitSuggestionService().ExecuteAsync(Picked("b", "Dune", 841));
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SubmitSuggestion_PickingTheSameFilm_Is409()
+    {
+        var taken = Person("a", "Dune") with { TmdbId = 438631, MovieYear = "2021" };
+        GivenTheNightReads(Night(NightPhase.Collecting, taken, Person("b")));
+        _movieLookup.FindByIdAsync(438631).Returns(new MovieMatch { TmdbId = 438631, Title = "Dune", Year = "2021", PosterPath = "" });
+
+        var result = await SubmitSuggestionService().ExecuteAsync(Picked("b", "Dune", 438631));
+
+        result.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task SubmitSuggestion_APickTmdbCantFetch_IsSavedAsTheTitleWithoutSearchingAgain()
+    {
+        GivenTheNightReads(Night(NightPhase.Collecting, Person("a"), Person("b")));
+        _movieLookup.FindByIdAsync(Arg.Any<int>()).Returns(MovieMatch.None);
+
+        var result = await SubmitSuggestionService().ExecuteAsync(Picked("a", "Spirited Away", 129));
+
+        result.IsSuccess.Should().BeTrue();
+        await _movieLookup.DidNotReceiveWithAnyArgs().FindAsync(default!);
+        Transactions().Single().TransactItems[1].Update.ExpressionAttributeValues[":title"].S.Should().Be("Spirited Away");
+    }
+
+    [Fact]
+    public async Task MovieSearch_ATooShortQuery_IsAnEmptyCacheableAnswerWithoutAskingTmdb()
+    {
+        var (response, cacheControl) = await new MovieSearchService(_adapter, _movieLookup).ExecuteAsync("a");
+
+        response.Movies.Should().BeEmpty();
+        cacheControl.Should().Be(MovieSearchService.CacheForADay);
+        await _movieLookup.DidNotReceiveWithAnyArgs().SearchAsync(default!);
+    }
+
+    [Fact]
+    public async Task MovieSearch_Found_IsCachedForADayWithThumbnailPosters()
+    {
+        _movieLookup.SearchAsync("toy").Returns(new MovieSearch
+        {
+            Succeeded = true,
+            Movies = [new MovieMatch { TmdbId = 862, Title = "Toy Story", Year = "1995", PosterPath = "/toy.jpg" }]
+        });
+
+        var (response, cacheControl) = await new MovieSearchService(_adapter, _movieLookup).ExecuteAsync("toy");
+
+        response.Movies.Single().Should().BeEquivalentTo(new MovieOption
+        {
+            TmdbId = 862, Title = "Toy Story", Year = "1995", PosterUrl = "https://image.tmdb.org/t/p/w92/toy.jpg"
+        });
+        cacheControl.Should().Be("public, max-age=86400");
+    }
+
+    [Fact]
+    public async Task MovieSearch_TmdbFailed_IsEmptyAndNeverCached()
+    {
+        _movieLookup.SearchAsync(Arg.Any<string>()).Returns(MovieSearch.Unavailable);
+
+        var (response, cacheControl) = await new MovieSearchService(_adapter, _movieLookup).ExecuteAsync("alien");
+
+        response.Movies.Should().BeEmpty();
+        cacheControl.Should().Be("no-store");
+    }
+
     [Fact]
     public async Task SubmitSuggestion_ATitleAlreadyTyped_IsTurnedAwayWithoutAskingTmdb()
     {

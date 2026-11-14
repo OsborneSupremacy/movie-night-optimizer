@@ -23,6 +23,9 @@ internal partial class TmdbMovieLookup : IMovieLookup
     /// <summary>How many of TMDB's results are considered. Its first page is ordered by relevance.</summary>
     private const int CandidateCount = 10;
 
+    /// <summary>How many movies an autocomplete list offers. Enough to find the right one, few enough to read.</summary>
+    internal const int OptionCount = 6;
+
     private readonly HttpClient _httpClient;
 
     private readonly ITmdbTokenSource _tokenSource;
@@ -75,7 +78,94 @@ internal partial class TmdbMovieLookup : IMovieLookup
         }
     }
 
-    private async Task<MovieMatch> SearchAsync(string token, string query, string year, CancellationToken cancellationToken)
+    public async Task<MovieMatch> FindByIdAsync(int tmdbId)
+    {
+        if(tmdbId <= 0)
+            return MovieMatch.None;
+
+        using var budget = new CancellationTokenSource(Budget);
+
+        try
+        {
+            var token = await _tokenSource.GetTokenAsync(budget.Token).ConfigureAwait(false);
+
+            if(token.Length == 0)
+                return MovieMatch.None;
+
+            var json = await GetMovieJsonAsync(token, tmdbId, budget.Token).ConfigureAwait(false);
+
+            if(json.Length == 0)
+                return MovieMatch.None;
+
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+
+            var title = Text(root, "title").Trim();
+
+            return title.Length == 0
+                ? MovieMatch.None
+                : new MovieMatch
+                {
+                    TmdbId = tmdbId,
+                    Title = title,
+                    Year = YearOf(Text(root, "release_date")),
+                    PosterPath = Text(root, "poster_path").Trim(),
+                    Details = ParseDetails(json)
+                };
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "TMDB lookup of movie {TmdbId} failed", tmdbId);
+            return MovieMatch.None;
+        }
+    }
+
+    public async Task<MovieSearch> SearchAsync(string partialTitle)
+    {
+        var typed = partialTitle.TrimNullSafe();
+
+        if(typed.Length == 0)
+            return new MovieSearch { Succeeded = true, Movies = [] };
+
+        using var budget = new CancellationTokenSource(Budget);
+
+        try
+        {
+            var token = await _tokenSource.GetTokenAsync(budget.Token).ConfigureAwait(false);
+
+            if(token.Length == 0)
+                return MovieSearch.Unavailable;
+
+            var (title, year) = SplitYear(typed);
+            var results = year.Length > 0
+                ? await SearchResultsAsync(token, title, year, budget.Token).ConfigureAwait(false)
+                : [];
+
+            if(results.Count == 0)
+                results = await SearchResultsAsync(token, typed, string.Empty, budget.Token).ConfigureAwait(false);
+
+            return new MovieSearch
+            {
+                Succeeded = true,
+                Movies = results
+                    .Where(result => result.Id > 0 && !string.IsNullOrWhiteSpace(result.Title))
+                    .Take(OptionCount)
+                    .Select(ToMatch)
+                    .ToImmutableList()
+            };
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "TMDB autocomplete search failed");
+            return MovieSearch.Unavailable;
+        }
+    }
+
+    private async Task<MovieMatch> SearchAsync(string token, string query, string year, CancellationToken cancellationToken) =>
+        Choose(query, await SearchResultsAsync(token, query, year, cancellationToken).ConfigureAwait(false));
+
+    /// <summary>TMDB's first page of results, in its order. Throws when TMDB answers with an error.</summary>
+    private async Task<ImmutableList<SearchResult>> SearchResultsAsync(string token, string query, string year, CancellationToken cancellationToken)
     {
         var path = $"search/movie?query={Uri.EscapeDataString(query)}&include_adult=false&language=en-US&page=1"
             + (year.Length > 0 ? $"&primary_release_year={year}" : string.Empty);
@@ -86,20 +176,17 @@ internal partial class TmdbMovieLookup : IMovieLookup
 
         using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
 
+        // 429 is TMDB rate limiting; 401 is a bad token. Neither is worth a second try while
+        // somebody waits, so it is an error for the caller to turn into "no match".
         if(!response.IsSuccessStatusCode)
-        {
-            // 429 is TMDB rate limiting; 401 is a bad token. Neither is worth a second try while
-            // somebody waits on the button.
-            _logger.LogWarning("TMDB search answered {StatusCode}; saving the suggestion as typed", (int)response.StatusCode);
-            return MovieMatch.None;
-        }
+            throw new HttpRequestException($"TMDB search answered {(int)response.StatusCode}", null, response.StatusCode);
 
         var page = await JsonSerializer
             .DeserializeAsync<SearchPage>(await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false),
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
-        return Choose(query, page?.Results ?? []);
+        return page?.Results ?? [];
     }
 
     /// <summary>
@@ -110,26 +197,35 @@ internal partial class TmdbMovieLookup : IMovieLookup
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get,
-                $"movie/{tmdbId}?append_to_response=release_dates,watch/providers,videos&language=en-US");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            var json = await GetMovieJsonAsync(token, tmdbId, cancellationToken).ConfigureAwait(false);
 
-            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-
-            if(!response.IsSuccessStatusCode)
-            {
-                _logger.LogWarning("TMDB details answered {StatusCode}; keeping the match without them", (int)response.StatusCode);
-                return MovieDetails.Empty;
-            }
-
-            return ParseDetails(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+            return json.Length > 0 ? ParseDetails(json) : MovieDetails.Empty;
         }
         catch (Exception exception)
         {
             _logger.LogWarning(exception, "TMDB details failed; keeping the match without them");
             return MovieDetails.Empty;
         }
+    }
+
+    /// <summary>
+    /// TMDB's whole entry for a movie: its title and poster, and the details appended to it. Empty
+    /// when TMDB answers with an error, which is logged.
+    /// </summary>
+    private async Task<string> GetMovieJsonAsync(string token, int tmdbId, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get,
+            $"movie/{tmdbId.ToString(CultureInfo.InvariantCulture)}?append_to_response=release_dates,watch/providers,videos&language=en-US");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+        if(response.IsSuccessStatusCode)
+            return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
+        _logger.LogWarning("TMDB movie {TmdbId} answered {StatusCode}", tmdbId, (int)response.StatusCode);
+        return string.Empty;
     }
 
     /// <summary>
@@ -268,14 +364,17 @@ internal partial class TmdbMovieLookup : IMovieLookup
             .OrderByDescending(result => result.Popularity)
             .FirstOrDefault() ?? candidates[0];
 
-        return new MovieMatch
-        {
-            TmdbId = chosen.Id,
-            Title = (chosen.Title ?? string.Empty).Trim(),
-            Year = YearOf(chosen.ReleaseDate ?? string.Empty),
-            PosterPath = (chosen.PosterPath ?? string.Empty).Trim()
-        };
+        return ToMatch(chosen);
     }
+
+    private static MovieMatch ToMatch(SearchResult result) =>
+        new()
+        {
+            TmdbId = result.Id,
+            Title = (result.Title ?? string.Empty).Trim(),
+            Year = YearOf(result.ReleaseDate ?? string.Empty),
+            PosterPath = (result.PosterPath ?? string.Empty).Trim()
+        };
 
     /// <summary>"Alien (1979)" into "Alien" and "1979". A title that is only a year, like 1917, keeps it.</summary>
     internal static (string title, string year) SplitYear(string typed)

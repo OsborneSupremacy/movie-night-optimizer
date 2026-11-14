@@ -14,7 +14,11 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(method: string, path: string, options: { token?: string; body?: unknown } = {}): Promise<T> {
+async function request<T>(
+  method: string,
+  path: string,
+  options: { token?: string; body?: unknown; signal?: AbortSignal } = {},
+): Promise<T> {
   const headers: Record<string, string> = {}
   if (options.token) headers[PARTICIPANT_TOKEN_HEADER] = options.token
   if (options.body !== undefined) headers['Content-Type'] = 'application/json'
@@ -22,6 +26,7 @@ async function request<T>(method: string, path: string, options: { token?: strin
   const response = await fetch(`${API_BASE}${path}`, {
     method,
     headers,
+    signal: options.signal,
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
   })
 
@@ -133,8 +138,32 @@ const nightPath = (nightId: string) => `/nights/${encodeURIComponent(nightId)}`
 export const getNight = (nightId: string, token: string) =>
   request<NightView>('GET', nightPath(nightId), { token })
 
-export const submitSuggestion = (nightId: string, token: string, suggestion: string) =>
-  request<NightView>('POST', `${nightPath(nightId)}/suggestion`, { token, body: { suggestion } })
+/** tmdbId is the movie picked from the autocomplete list, or 0 when the title was typed. */
+export const submitSuggestion = (nightId: string, token: string, suggestion: string, tmdbId = 0) =>
+  request<NightView>('POST', `${nightPath(nightId)}/suggestion`, { token, body: { suggestion, tmdbId } })
+
+/** One movie in the autocomplete list. Mirrors MovieOption. */
+export interface MovieOption {
+  tmdbId: number
+  title: string
+  /** Empty when unknown. */
+  year: string
+  /** A thumbnail, or empty. */
+  posterUrl: string
+}
+
+/**
+ * Movies that could be what somebody is typing. Public and cached for a day at CloudFront, so the
+ * query is normalized first: the same letters typed differently share one cached answer.
+ */
+export const searchMovies = (query: string, signal?: AbortSignal) =>
+  request<{ movies: MovieOption[] }>('GET', `/movies/search?q=${encodeURIComponent(normalizeQuery(query))}`, {
+    signal,
+  }).then((response) => response.movies)
+
+export function normalizeQuery(query: string): string {
+  return query.trim().toLowerCase().replace(/\s+/g, ' ')
+}
 
 /** Movie ids from NightView.toRank, best first. */
 export const submitRanking = (nightId: string, token: string, ranking: string[]) =>

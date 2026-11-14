@@ -27,8 +27,10 @@ resource "aws_apigatewayv2_stage" "default" {
   name        = "$default"
   auto_deploy = true
 
-  # For the whole API, across every caller. Low on purpose: a family choosing a film makes a
-  # handful of requests, and POST /api/nights sends mail.
+  # For each route on its own, across every caller: an HTTP API applies default route throttling
+  # per route, so the autocomplete search can't use up what submitting a suggestion needs. Low on
+  # purpose: a family choosing a film makes a handful of requests, and POST /api/nights sends mail.
+  # It also caps autocomplete's calls to TMDB far below TMDB's own limit.
   default_route_settings {
     throttling_rate_limit  = 5
     throttling_burst_limit = 10

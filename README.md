@@ -44,6 +44,12 @@ Every email has a link to stop email for good. That adds a hash of the inbox to 
 which is checked before every send, and takes the person out of their night so no round waits on
 them.
 
+The suggest box offers TMDB movies as you type, and picking one pins the exact film, so "Dune"
+can be the 1984 one. Autocomplete answers are cached at CloudFront for a day, keyed on the search
+text, so common searches never reach the API. Each route has its own rate limit (5 requests a
+second), so searching can't crowd out submitting, and it keeps calls to TMDB far below TMDB's own
+limit. A typed title still works exactly as before.
+
 Each suggestion is looked up with [TMDB](https://www.themoviedb.org/), which gives it its proper
 title, year and poster: "princess bride" becomes *The Princess Bride* (1987). A second request
 fetches what helps people rank a movie they haven't seen: its US rating, runtime, genres, where it
@@ -93,9 +99,10 @@ The site and the API share one origin, `movienight.osbornesupremacy.com`. CloudF
 | `POST /api/nights/{nightId}/ranking`    | Records this participant's ranking.                   |
 | `POST /api/nights/{nightId}/advance`    | Organizer only: closes the current round early.       |
 | `POST /api/nights/{nightId}/confirm`    | Organizer only: confirms and sends the invitations.   |
+| `GET /api/movies/search?q=`             | Autocomplete. Public, and cached for a day.           |
 | `POST /api/nights/{nightId}/opt-out`    | Never email this participant's inbox again.           |
 
-Every route but the first two identifies the caller by the `X-Participant-Token` header.
+Every route but health, creating a night and search identifies the caller by the `X-Participant-Token` header.
 
 ## Deploying
 
@@ -136,6 +143,7 @@ dotnet test
 - [x] CI: build, tests and Terraform checks on every push
 - [x] An app-wide daily cap, and a do-not-email list with a link in every email
 - [x] The organizer confirms their address before any invitation goes out
+- [x] TMDB autocomplete on the suggest box
 - [x] TMDB titles, years and posters, falling back to the typed title
 - [x] Rating, runtime, genres, streaming services and trailer on each ranking card
 
