@@ -71,6 +71,7 @@ Otherwise titles match ignoring case, punctuation and a leading "The".
 | Data           | DynamoDB, one partition per night, removed by TTL after 30 days.                                |
 | Email          | SES, sending only.                                                                              |
 | Movie data     | TMDB's search API, with its token in Secrets Manager. Optional: without it, titles stay as typed. |
+| Monitoring     | CloudWatch alarms on the Lambda's errors, throttles and slow requests. An EventBridge rule emails only changes between ALARM and OK. |
 | Infrastructure | Terraform.                                                                                      |
 
 The site and the API share one origin, `movienight.osbornesupremacy.com`. CloudFront sends
