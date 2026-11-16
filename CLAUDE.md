@@ -32,8 +32,8 @@ Follow these in new code.
 
 ## Working practices
 
-- One branch per change, pushed so that CI runs; merge into `main` with a fast-forward once CI passes.
-- Run `dotnet test` and `npm run build` (in `src/app`) before deploying. The Lambda zip has to exist before `terraform plan`; `./scripts/build-lambdas.sh` builds it.
+- One branch per change; run `./scripts/check.sh` and merge into `main` with a fast-forward once it passes. There is no CI or deployment pipeline, and there must not be one: the hackathon rules ask for no deployment pipelines to manage.
+- `./scripts/check.sh` runs `dotnet test`, builds the Lambda zip and the site, and checks the Terraform; `deploy.sh` runs it first. The Lambda zip has to exist before `terraform plan`; `./scripts/build-lambdas.sh` builds it.
 - Deploy with a saved plan: build the zip, `terraform plan -out`, read what it changes, then apply that plan. Then sync `src/app/dist` to the S3 bucket and invalidate CloudFront. `./scripts/deploy.sh` does all of this interactively. AWS credentials come from the `ben` profile (`aws sso login --profile ben`).
 - `live_mode` defaults to true, so a plain deploy sends real mail. To divert every email to one inbox, pass `-var live_mode=false -var test_recipient=...` (`deploy.sh` passes its arguments through to `terraform apply`).
 - There is no local API: `npm run dev` proxies `/api` to the deployed site, so it reads and writes real data and sends real mail.

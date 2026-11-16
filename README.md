@@ -1,7 +1,5 @@
 # Movie Night Optimizer
 
-[![CI](https://github.com/OsborneSupremacy/movie-night-optimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/OsborneSupremacy/movie-night-optimizer/actions/workflows/ci.yml)
-
 Picks the movie for a group that can't agree on one.
 
 ### ▶ Try it: [movienight.osbornesupremacy.com](https://movienight.osbornesupremacy.com)
@@ -115,8 +113,9 @@ Needs dotnet 10, Terraform, Node and the AWS CLI, with credentials for the accou
 ./scripts/deploy.sh
 ```
 
-That builds the Lambda, applies Terraform, builds the site, syncs it to S3 and invalidates
-CloudFront. The first apply takes a while: it waits on certificate validation, SES domain
+That runs the tests, builds the Lambda and the site, checks the Terraform, applies it, syncs the
+site to S3 and invalidates CloudFront. There is no deployment pipeline: this script, run by hand,
+is the only way anything reaches AWS. The first apply takes a while: it waits on certificate validation, SES domain
 verification and a new CloudFront distribution.
 
 Then:
@@ -128,8 +127,11 @@ curl https://movienight.osbornesupremacy.com/api/health
 ## Tests
 
 ```bash
-dotnet test
+./scripts/check.sh
 ```
+
+That runs `dotnet test`, builds the Lambda zip and the site, and runs `terraform fmt -check` and
+`terraform validate`, without touching AWS. Run it before merging a branch.
 
 ## Status
 
@@ -143,7 +145,7 @@ dotnet test
 - [x] The three emails
 - [x] Suggest, rank and results pages
 - [x] Turning away a movie somebody else already suggested
-- [x] CI: build, tests and Terraform checks on every push
+- [x] One local script for build, tests and Terraform checks
 - [x] An app-wide daily cap, and a do-not-email list with a link in every email
 - [x] The organizer confirms their address before any invitation goes out
 - [x] TMDB autocomplete on the suggest box
